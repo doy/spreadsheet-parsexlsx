@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 use Archive::Zip;
+use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel;
 use XML::Twig;
 
@@ -12,11 +13,20 @@ sub new {
 
 sub parse {
     my $self = shift;
-    my ($filename) = @_;
+    my ($file) = @_;
 
     my $zip = Archive::Zip->new;
-    die "Can't open $filename as zip file"
-        unless $zip->read($filename) == Archive::Zip::AZ_OK;
+    if (openhandle($file)) {
+        $zip->readFromFileHandle($file) == Archive::Zip::AZ_OK
+            or die "Can't open filehandle as a zip file";
+    }
+    elsif (!ref($file)) {
+        $zip->read($file) == Archive::Zip::AZ_OK
+            or die "Can't open file '$file' as a zip file";
+    }
+    else {
+        die "Argument to 'new' must be a filename or open filehandle";
+    }
 
     return $self->_parse_workbook($zip);
 }
