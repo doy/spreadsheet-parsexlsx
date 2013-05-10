@@ -36,6 +36,52 @@ sub _parse_workbook {
     my ($zip) = @_;
 
     my $files = $self->_extract_files($zip);
+
+    my $workbook = Spreadsheet::ParseExcel::Workbook->new;
+
+    my @sheets = map {
+        my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
+            Name     => $_->att('name'),
+            _Book    => $workbook,
+            _SheetNo => $_->att('sheetId') - 1,
+        );
+        $self->_parse_sheet($sheet, $files);
+        $sheet
+    } $files->{workbook}->find_nodes('//sheets/sheet');
+
+    my ($version)    = $files->{workbook}->find_nodes('//fileVersion');
+    my ($properties) = $files->{workbook}->find_nodes('//workbookPr');
+
+    $workbook->{Version} = join('-',
+        map { $version->att($_) } qw(appName lowestEdited)
+    );
+    $workbook->{Flag1904} = $properties->att('date1904') ? 1 : 0;
+
+    $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
+
+    $workbook->{Worksheet}  = \@sheets;
+    $workbook->{SheetCount} = scalar(@sheets);
+
+    # $workbook->{Format}    = ...;
+    # $workbook->{FormatStr} = ...;
+    # $workbook->{Font}      = ...;
+
+    # $workbook->{PkgStr} = ...;
+
+    # $workbook->{StandardWidth} = ...;
+
+    # $workbook->{Author} = ...;
+
+    # $workbook->{PrintArea} = ...;
+    # $workbook->{PrintTitle} = ...;
+
+    return $workbook;
+}
+
+sub _parse_sheet {
+    my $self = shift;
+    my ($sheet, $files) = @_;
+
     # ...
 }
 
