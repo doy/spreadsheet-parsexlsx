@@ -49,9 +49,11 @@ sub _parse_workbook {
 
     $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
 
-    # $workbook->{Format}    = ...;
-    # $workbook->{FormatStr} = ...;
-    # $workbook->{Font}      = ...;
+    my $styles = $self->_parse_styles($files->{styles});
+
+    $workbook->{Format}    = $styles->{Format};
+    $workbook->{FormatStr} = $styles->{FormatStr};
+    $workbook->{Font}      = $styles->{Font};
 
     $workbook->{PkgStr} = $self->_parse_shared_strings($files->{strings});
 
@@ -137,6 +139,66 @@ sub _parse_shared_strings {
             { Text => $_->text } # XXX are Unicode, Rich, or Ext important?
         } $strings->find_nodes('//t')
     ];
+}
+
+sub _parse_styles {
+    my $self = shift;
+    my ($styles) = @_;
+
+    my %format_str = map {
+        $_->att('numFmtId') => $_->att('formatCode')
+    } $styles->find_nodes('//numFmt');
+    $format_str{0} = 'GENERAL'; # XXX others?
+
+    my @font = map {
+        Spreadsheet::ParseExcel::Font->new(
+            Height         => 0+$_->first_child('sz')->att('val'),
+            # Attr           => $iAttr,
+            # Color          => $iCIdx,
+            # Super          => $iSuper,
+            # UnderlineStyle => $iUnderline,
+            Name           => $_->first_child('name')->att('val'),
+
+            # Bold      => $bBold,
+            # Italic    => $bItalic,
+            # Underline => $bUnderline,
+            # Strikeout => $bStrikeout,
+        )
+    } $styles->find_nodes('//font');
+
+    my @format = map {
+        Spreadsheet::ParseExcel::Format->new(
+            FontNo => 0+$_->att('fontId'),
+            Font   => $font[$_->att('fontId')],
+            FmtIdx => 0+$_->att('numFmtId'),
+
+            # Lock     => $iLock,
+            # Hidden   => $iHidden,
+            # Style    => $iStyle,
+            # Key123   => $i123,
+            # AlignH   => $iAlH,
+            # Wrap     => $iWrap,
+            # AlignV   => $iAlV,
+            # JustLast => $iJustL,
+            # Rotate   => $iRotate,
+
+            # Indent  => $iInd,
+            # Shrink  => $iShrink,
+            # Merge   => $iMerge,
+            # ReadDir => $iReadDir,
+
+            # BdrStyle => [ $iBdrSL, $iBdrSR,  $iBdrST, $iBdrSB ],
+            # BdrColor => [ $iBdrCL, $iBdrCR,  $iBdrCT, $iBdrCB ],
+            # BdrDiag  => [ $iBdrD,  $iBdrSD,  $iBdrCD ],
+            # Fill     => [ $iFillP, $iFillCF, $iFillCB ],
+        )
+    } $styles->find_nodes('//cellXfs/xf');
+
+    return {
+        FormatStr => \%format_str,
+        Font      => \@font,
+        Format    => \@format,
+    }
 }
 
 sub _extract_files {
