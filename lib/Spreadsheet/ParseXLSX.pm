@@ -53,7 +53,7 @@ sub _parse_workbook {
     # $workbook->{FormatStr} = ...;
     # $workbook->{Font}      = ...;
 
-    # $workbook->{PkgStr} = ...;
+    $workbook->{PkgStr} = $self->_parse_shared_strings($files->{strings});
 
     # $workbook->{StandardWidth} = ...;
 
@@ -63,12 +63,13 @@ sub _parse_workbook {
     # $workbook->{PrintTitle} = ...;
 
     my @sheets = map {
+        my $idx = $_->att('sheetId') - 1;
         my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
             Name     => $_->att('name'),
             _Book    => $workbook,
-            _SheetNo => $_->att('sheetId') - 1,
+            _SheetNo => $idx,
         );
-        $self->_parse_sheet($sheet, $files);
+        $self->_parse_sheet($sheet, $files->{sheets}[$idx]);
         $sheet
     } $files->{workbook}->find_nodes('//sheets/sheet');
 
@@ -80,9 +81,62 @@ sub _parse_workbook {
 
 sub _parse_sheet {
     my $self = shift;
-    my ($sheet, $files) = @_;
+    my ($sheet, $sheet_xml) = @_;
+
+    # XXX need a fallback here, the dimension tag is optional
+    my ($dimension) = $sheet_xml->find_nodes('//dimension');
+    my ($topleft, $bottomright) = split ':', $dimension->att('ref');
+    my ($rmin, $cmin) = $self->_cell_to_row_col($topleft);
+    my ($rmax, $cmax) = $self->_cell_to_row_col($bottomright);
+
+    $sheet->{MinRow} = $rmin;
+    $sheet->{MinCol} = $cmin;
+    $sheet->{MaxRow} = $rmax;
+    $sheet->{MaxCol} = $cmax;
+
+    for my $cell ($sheet_xml->find_nodes('//sheetData/row/c')) {
+        my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
+        my $val = $cell->first_child('v')->text;
+        my $type = $cell->att('t') || 'n';
+
+        my $long_type;
+        if ($type eq 's') {
+            $long_type = 'Text';
+            $val = $sheet->{_Book}{PkgStr}[$val]{Text};
+        }
+        elsif ($type eq 'n') {
+            $long_type = 'Numeric';
+            $val = 0+$val;
+        }
+        elsif ($type eq 'd') {
+            $long_type = 'Date';
+        }
+        else {
+            die "unimplemented type $type"; # XXX
+        }
+
+        $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new(
+            Val     => $val,
+            Type    => $long_type,
+            # Format  => ...,
+            ($cell->first_child('f')
+                ? (Formula => $cell->first_child('f')->text)
+                : ()),
+        );
+    }
 
     # ...
+}
+
+sub _parse_shared_strings {
+    my $self = shift;
+    my ($strings) = @_;
+
+    return [
+        map {
+            { Text => $_->text } # XXX are Unicode, Rich, or Ext important?
+        } $strings->find_nodes('//t')
+    ];
 }
 
 sub _extract_files {
@@ -170,6 +224,18 @@ sub _base_path_for {
     pop @path;
 
     return join('/', @path) . '/';
+}
+
+sub _cell_to_row_col {
+    my $self = shift;
+    my ($cell) = @_;
+
+    my ($col, $row) = $cell =~ /([A-Z]+)([0-9]+)/;
+    $col =~ tr/A-Z/0-9A-P/;
+    $col = POSIX::strtol($col, 26);
+    $row = $row - 1;
+
+    return ($row, $col);
 }
 
 1;
