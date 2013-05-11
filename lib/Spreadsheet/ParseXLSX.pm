@@ -39,16 +39,6 @@ sub _parse_workbook {
 
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
 
-    my @sheets = map {
-        my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
-            Name     => $_->att('name'),
-            _Book    => $workbook,
-            _SheetNo => $_->att('sheetId') - 1,
-        );
-        $self->_parse_sheet($sheet, $files);
-        $sheet
-    } $files->{workbook}->find_nodes('//sheets/sheet');
-
     my ($version)    = $files->{workbook}->find_nodes('//fileVersion');
     my ($properties) = $files->{workbook}->find_nodes('//workbookPr');
 
@@ -58,9 +48,6 @@ sub _parse_workbook {
     $workbook->{Flag1904} = $properties->att('date1904') ? 1 : 0;
 
     $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
-
-    $workbook->{Worksheet}  = \@sheets;
-    $workbook->{SheetCount} = scalar(@sheets);
 
     # $workbook->{Format}    = ...;
     # $workbook->{FormatStr} = ...;
@@ -74,6 +61,19 @@ sub _parse_workbook {
 
     # $workbook->{PrintArea} = ...;
     # $workbook->{PrintTitle} = ...;
+
+    my @sheets = map {
+        my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
+            Name     => $_->att('name'),
+            _Book    => $workbook,
+            _SheetNo => $_->att('sheetId') - 1,
+        );
+        $self->_parse_sheet($sheet, $files);
+        $sheet
+    } $files->{workbook}->find_nodes('//sheets/sheet');
+
+    $workbook->{Worksheet}  = \@sheets;
+    $workbook->{SheetCount} = scalar(@sheets);
 
     return $workbook;
 }
