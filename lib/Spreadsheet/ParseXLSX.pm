@@ -82,6 +82,10 @@ sub _parse_workbook {
     $workbook->{Worksheet}  = \@sheets;
     $workbook->{SheetCount} = scalar(@sheets);
 
+    my ($node) = $files->{workbook}->find_nodes('//workbookView');
+    my $selected = $node->att('activeTab');
+    $workbook->{SelectedSheet} = defined($selected) ? 0+$selected : 0;
+
     return $workbook;
 }
 
@@ -131,7 +135,34 @@ sub _parse_sheet {
         );
     }
 
-    # ...
+    my @column_widths;
+    my @row_heights;
+
+    my ($format) = $sheet_xml->find_nodes('//sheetFormatPr');
+    my $default_row_height = $format->att('defaultRowHeight') || 15;
+    my $default_column_width = $format->att('baseColWidth') || 10;
+
+    for my $col ($sheet_xml->find_nodes('//col')) {
+        $column_widths[$col->att('min') - 1] = $col->att('width');
+    }
+
+    for my $row ($sheet_xml->find_nodes('//row')) {
+        $row_heights[$row->att('r') - 1] = $row->att('ht');
+    }
+
+    $sheet->{DefRowHeight} = 0+$default_row_height;
+    $sheet->{DefColWidth} = 0+$default_column_width;
+    $sheet->{RowHeight} = [
+        map { defined $_ ? 0+$_ : 0+$default_row_height } @row_heights
+    ];
+    $sheet->{ColWidth} = [
+        map { defined $_ ? 0+$_ : 0+$default_column_width } @column_widths
+    ];
+
+    my ($selection) = $sheet_xml->find_nodes('//selection');
+    my $cell = $selection->att('activeCell');
+
+    $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
 }
 
 sub _parse_shared_strings {
