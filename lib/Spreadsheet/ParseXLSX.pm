@@ -315,7 +315,7 @@ sub _parse_styles {
             # Style    => $iStyle,
             # Key123   => $i123,
             AlignH => $alignment
-                ? $halign{$alignment->att('horizontal') || 'none'}
+                ? $halign{$alignment->att('horizontal') || 'general'}
                 : 0,
             Wrap => $alignment
                 ? $alignment->att('wrapText')
