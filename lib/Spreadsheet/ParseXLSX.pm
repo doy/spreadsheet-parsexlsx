@@ -49,7 +49,11 @@ sub _parse_workbook {
 
     $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
 
-    my $styles = $self->_parse_styles($files->{styles});
+    my $themes = $self->_parse_themes($files->{themes}[0]); # XXX
+
+    $workbook->{Color} = $themes->{Color};
+
+    my $styles = $self->_parse_styles($workbook, $files->{styles});
 
     $workbook->{Format}    = $styles->{Format};
     $workbook->{FormatStr} = $styles->{FormatStr};
@@ -141,9 +145,27 @@ sub _parse_shared_strings {
     ];
 }
 
+sub _parse_themes {
+    my $self = shift;
+    my ($themes) = @_;
+
+    my @color = map {
+        $_->name eq 'a:sysClr' ? $_->att('lastClr') : $_->att('val')
+    } $themes->find_nodes('//a:clrScheme/*/*');
+
+    # this shouldn't be necessary, but the documentation is wrong here
+    # see http://stackoverflow.com/questions/2760976/theme-confusion-in-spreadsheetml
+    ($color[0], $color[1]) = ($color[1], $color[0]);
+    ($color[2], $color[3]) = ($color[3], $color[2]);
+
+    return {
+        Color => \@color,
+    }
+}
+
 sub _parse_styles {
     my $self = shift;
-    my ($styles) = @_;
+    my ($workbook, $styles) = @_;
 
     my %format_str = map {
         $_->att('numFmtId') => $_->att('formatCode')
@@ -154,7 +176,12 @@ sub _parse_styles {
         Spreadsheet::ParseExcel::Font->new(
             Height         => 0+$_->first_child('sz')->att('val'),
             # Attr           => $iAttr,
-            # Color          => $iCIdx,
+            # XXX not sure if there's a better way to keep the indexing stuff
+            # intact rather than just going straight to #xxxxxx
+            Color          => $self->_color(
+                $workbook->{Color},
+                $_->first_child('color')
+            ),
             # Super          => $iSuper,
             # UnderlineStyle => $iUnderline,
             Name           => $_->first_child('name')->att('val'),
@@ -298,6 +325,27 @@ sub _cell_to_row_col {
     $row = $row - 1;
 
     return ($row, $col);
+}
+
+sub _color {
+    my $self = shift;
+    my ($colors, $color_node) = @_;
+
+    my $color; # XXX
+    if ($color_node) {
+        $color = '#000000' # XXX
+            if $color_node->att('auto');
+        $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB( # XXX
+            $color_node->att('indexed')
+        ) if defined $color_node->att('indexed');
+        $color = '#' . substr($color_node->att('rgb'), 2, 6)
+            if defined $color_node->att('rgb');
+        $color = '#' . $colors->[$color_node->att('theme')]
+            if defined $color_node->att('theme');
+        # XXX tint?
+    }
+
+    return $color;
 }
 
 1;
