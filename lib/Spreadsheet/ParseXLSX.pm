@@ -199,24 +199,39 @@ sub _parse_styles {
     my ($workbook, $styles) = @_;
 
     my %halign = (
-        none   => 0,
-        left   => 1,
-        center => 2,
-        right  => 3,
-        # XXX ...
+        center           => 2,
+        centerContinuous => 6,
+        distributed      => 7,
+        fill             => 4,
+        general          => 0,
+        justify          => 5,
+        left             => 1,
+        right            => 3,
     );
 
     my %valign = (
-        top    => 0,
-        center => 1,
-        bottom => 2,
-        # XXX ...
+        bottom      => 2,
+        center      => 1,
+        distributed => 4,
+        justify     => 3,
+        top         => 0,
     );
 
     my %border = (
-        none => 0,
-        thin => 5,
-        # XXX ...
+        dashDot          => 9,
+        dashDotDot       => 11,
+        dashed           => 3,
+        dotted           => 4,
+        double           => 6,
+        hair             => 7,
+        medium           => 2,
+        mediumDashDot    => 10,
+        mediumDashDotDot => 12,
+        mediumDashed     => 8,
+        none             => 0,
+        slantDashDot     => 13,
+        thick            => 5,
+        thin             => 1,
     );
 
     my @fills = map {
