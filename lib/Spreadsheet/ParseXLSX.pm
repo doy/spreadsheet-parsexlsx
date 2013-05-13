@@ -122,9 +122,9 @@ sub _parse_sheet {
         }
 
         $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new(
-            Val     => $val,
-            Type    => $long_type,
-            # Format  => ...,
+            Val    => $val,
+            Type   => $long_type,
+            Format => $sheet->{_Book}{Format}[$cell->att('s') || 0],
             ($cell->first_child('f')
                 ? (Formula => $cell->first_child('f')->text)
                 : ()),
@@ -167,6 +167,64 @@ sub _parse_styles {
     my $self = shift;
     my ($workbook, $styles) = @_;
 
+    my %halign = (
+        none   => 0,
+        left   => 1,
+        center => 2,
+        right  => 3,
+        # XXX ...
+    );
+
+    my %valign = (
+        top    => 0,
+        center => 1,
+        bottom => 2,
+        # XXX ...
+    );
+
+    my %border = (
+        none => 0,
+        thin => 5,
+        # XXX ...
+    );
+
+    my @fills = map {
+        [
+            0, # XXX
+            $self->_color($workbook->{Color}, $_->first_child('fgColor')),
+            $self->_color($workbook->{Color}, $_->first_child('bgColor')),
+        ]
+    } $styles->find_nodes('//fills/fill/patternFill');
+
+    my @borders = map {
+        my $border = $_;
+        # XXX specs say "begin" and "end" rather than "left" and "right",
+        # but... that's not what seems to be in the file itself (sigh)
+        {
+            colors => [
+                map {
+                    $self->_color(
+                        $workbook->{Color},
+                        $border->first_child($_)->first_child('color')
+                    )
+                } qw(left right top bottom)
+            ],
+            styles => [
+                map {
+                    $border{$border->first_child($_)->att('style') || 'none'}
+                } qw(left right top bottom)
+            ],
+            diagonal => [
+                0, # XXX ->att('diagonalDown') and ->att('diagonalUp')
+                0, # XXX ->att('style')
+                $self->_color(
+                    $workbook->{Color},
+                    $border->first_child('diagonal')->first_child('color')
+                ),
+            ],
+        }
+    } $styles->find_nodes('//borders/border');
+
     my %format_str = map {
         $_->att('numFmtId') => $_->att('formatCode')
     } $styles->find_nodes('//numFmt');
@@ -194,7 +252,14 @@ sub _parse_styles {
     } $styles->find_nodes('//font');
 
     my @format = map {
+        my $alignment = $_->first_child('alignment');
         Spreadsheet::ParseExcel::Format->new(
+            IgnoreFont         => !$_->att('applyFont'),
+            IgnoreFill         => !$_->att('applyFill'),
+            IgnoreBorder       => !$_->att('applyBorder'),
+            IgnoreAlignment    => !$_->att('applyAlignment'),
+            IgnoreNumberFormat => !$_->att('applyNumberFormat'),
+
             FontNo => 0+$_->att('fontId'),
             Font   => $font[$_->att('fontId')],
             FmtIdx => 0+$_->att('numFmtId'),
@@ -203,9 +268,15 @@ sub _parse_styles {
             # Hidden   => $iHidden,
             # Style    => $iStyle,
             # Key123   => $i123,
-            # AlignH   => $iAlH,
-            # Wrap     => $iWrap,
-            # AlignV   => $iAlV,
+            AlignH => $alignment
+                ? $halign{$alignment->att('horizontal') || 'none'}
+                : 0,
+            Wrap => $alignment
+                ? $alignment->att('wrapText')
+                : 0,
+            AlignV => $alignment
+                ? $valign{$alignment->att('vertical') || 'bottom'}
+                : 2,
             # JustLast => $iJustL,
             # Rotate   => $iRotate,
 
@@ -214,10 +285,10 @@ sub _parse_styles {
             # Merge   => $iMerge,
             # ReadDir => $iReadDir,
 
-            # BdrStyle => [ $iBdrSL, $iBdrSR,  $iBdrST, $iBdrSB ],
-            # BdrColor => [ $iBdrCL, $iBdrCR,  $iBdrCT, $iBdrCB ],
-            # BdrDiag  => [ $iBdrD,  $iBdrSD,  $iBdrCD ],
-            # Fill     => [ $iFillP, $iFillCF, $iFillCB ],
+            BdrStyle => $borders[$_->att('borderId')]{styles},
+            BdrColor => $borders[$_->att('borderId')]{colors},
+            BdrDiag  => $borders[$_->att('borderId')]{diagonal},
+            Fill     => $fills[$_->att('fillId')],
         )
     } $styles->find_nodes('//cellXfs/xf');
 
