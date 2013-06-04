@@ -295,10 +295,45 @@ sub _parse_styles {
         }
     } $styles->find_nodes('//borders/border');
 
-    my %format_str = map {
-        $_->att('numFmtId') => $_->att('formatCode')
-    } $styles->find_nodes('//numFmt');
-    $format_str{0} = 'GENERAL'; # XXX others?
+    # these defaults are from
+    # http://social.msdn.microsoft.com/Forums/en-US/oxmlsdk/thread/e27aaf16-b900-4654-8210-83c5774a179c
+    my %format_str = (
+        0  => 'GENERAL',
+        1  => '0',
+        2  => '0.00',
+        3  => '#,##0',
+        4  => '#,##0.00',
+        5  => '$#,##0_);($#,##0)',
+        6  => '$#,##0_);[Red]($#,##0)',
+        7  => '$#,##0.00_);($#,##0.00)',
+        8  => '$#,##0.00_);[Red]($#,##0.00)',
+        9  => '0%',
+        10 => '0.00%',
+        11 => '0.00E+00',
+        12 => '# ?/?',
+        13 => '# ??/??',
+        14 => 'm/d/yyyy',
+        15 => 'd-mmm-yy',
+        16 => 'd-mmm',
+        17 => 'mmm-yy',
+        18 => 'h:mm AM/PM',
+        19 => 'h:mm:ss AM/PM',
+        20 => 'h:mm',
+        21 => 'h:mm:ss',
+        22 => 'm/d/yyyy h:mm',
+        37 => '#,##0_);(#,##0)',
+        38 => '#,##0_);[Red](#,##0)',
+        39 => '#,##0.00_);(#,##0.00)',
+        40 => '#,##0.00_);[Red](#,##0.00)',
+        45 => 'mm:ss',
+        46 => '[h]:mm:ss',
+        47 => 'mm:ss.0',
+        48 => '##0.0E+0',
+        49 => '@',
+        (map {
+            $_->att('numFmtId') => $_->att('formatCode')
+        } $styles->find_nodes('//numFmt')),
+    );
 
     my @font = map {
         Spreadsheet::ParseExcel::Font->new(
