@@ -49,7 +49,7 @@ sub _parse_workbook {
 
     $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
 
-    my $themes = $self->_parse_themes($files->{themes}[0]); # XXX
+    my $themes = $self->_parse_themes((values %{ $files->{themes} })[0]); # XXX
 
     $workbook->{Color} = $themes->{Color};
 
@@ -69,13 +69,13 @@ sub _parse_workbook {
     # $workbook->{PrintTitle} = ...;
 
     my @sheets = map {
-        my $idx = $_->att('sheetId') - 1;
+        my $idx = $_->att('r:id');
         my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
             Name     => $_->att('name'),
             _Book    => $workbook,
             _SheetNo => $idx,
         );
-        $self->_parse_sheet($sheet, $files->{sheets}[$idx]);
+        $self->_parse_sheet($sheet, $files->{sheets}{$idx});
         $sheet
     } $files->{workbook}->find_nodes('//sheets/sheet');
 
@@ -106,7 +106,9 @@ sub _parse_sheet {
 
     for my $cell ($sheet_xml->find_nodes('//sheetData/row/c')) {
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
-        my $val = $cell->first_child('v')->text;
+        my $val = $cell->first_child('v')
+            ? $cell->first_child('v')->text
+            : undef;
         my $type = $cell->att('t') || 'n';
 
         my $long_type;
@@ -116,7 +118,7 @@ sub _parse_sheet {
         }
         elsif ($type eq 'n') {
             $long_type = 'Numeric';
-            $val = 0+$val;
+            $val = defined($val) ? 0+$val : undef;
         }
         elsif ($type eq 'd') {
             $long_type = 'Date';
@@ -379,20 +381,20 @@ sub _extract_files {
         ))[0]->att('Target')
     );
 
-    my @worksheet_xml = map {
-        $self->_parse_xml($zip, $path_base . $_->att('Target'))
+    my %worksheet_xml = map {
+        $_->att('Id') => $self->_parse_xml($zip, $path_base . $_->att('Target'))
     } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/worksheet"]>);
 
-    my @themes_xml = map {
-        $self->_parse_xml($zip, $path_base . $_->att('Target'))
+    my %themes_xml = map {
+        $_->att('Id') => $self->_parse_xml($zip, $path_base . $_->att('Target'))
     } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/theme"]>);
 
     return {
         workbook => $wb_xml,
         strings  => $strings_xml,
         styles   => $styles_xml,
-        sheets   => \@worksheet_xml,
-        themes   => \@themes_xml,
+        sheets   => \%worksheet_xml,
+        themes   => \%themes_xml,
     };
 }
 
