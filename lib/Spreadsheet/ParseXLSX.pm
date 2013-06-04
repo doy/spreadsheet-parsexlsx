@@ -236,9 +236,31 @@ sub _parse_styles {
         thin             => 1,
     );
 
+    my %fill = (
+        darkDown        => 7,
+        darkGray        => 3,
+        darkGrid        => 9,
+        darkHorizontal  => 5,
+        darkTrellis     => 10,
+        darkUp          => 8,
+        darkVertical    => 6,
+        gray0625        => 18,
+        gray125         => 17,
+        lightDown       => 13,
+        lightGray       => 4,
+        lightGrid       => 15,
+        lightHorizontal => 11,
+        lightTrellis    => 16,
+        lightUp         => 14,
+        lightVertical   => 12,
+        mediumGray      => 2,
+        none            => 0,
+        solid           => 1,
+    );
+
     my @fills = map {
         [
-            0, # XXX
+            $fill{$_->att('patternType')},
             $self->_color($workbook->{Color}, $_->first_child('fgColor')),
             $self->_color($workbook->{Color}, $_->first_child('bgColor')),
         ]
