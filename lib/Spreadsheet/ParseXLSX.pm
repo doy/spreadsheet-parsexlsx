@@ -105,14 +105,18 @@ sub _parse_sheet {
     $sheet->{MaxCol} = $cmax;
 
     for my $cell ($sheet_xml->find_nodes('//sheetData/row/c')) {
-        next unless $cell->first_child('v');
-
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
-        my $val = $cell->first_child('v')->text;
+        my $val = $cell->first_child('v')
+            ? $cell->first_child('v')->text
+            : undef;
         my $type = $cell->att('t') || 'n';
 
         my $long_type;
-        if ($type eq 's') {
+        if (!defined($val)) {
+            $long_type = 'Text';
+            $val = '';
+        }
+        elsif ($type eq 's') {
             $long_type = 'Text';
             $val = $sheet->{_Book}{PkgStr}[$val]{Text};
         }
