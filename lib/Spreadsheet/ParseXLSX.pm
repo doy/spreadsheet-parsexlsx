@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 use Archive::Zip;
+use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel;
 use XML::Twig;
@@ -527,10 +528,29 @@ sub _color {
             if defined $color_node->att('rgb');
         $color = '#' . $colors->[$color_node->att('theme')]
             if defined $color_node->att('theme');
-        # XXX tint?
+
+        $color = $self->_apply_tint($color, $color_node->att('tint'))
+            if $color_node->att('tint');
     }
 
     return $color;
+}
+
+sub _apply_tint {
+    my $self = shift;
+    my ($color, $tint) = @_;
+
+    my ($r, $g, $b) = map { oct("0x$_") } $color =~ /#(..)(..)(..)/;
+    my ($h, $l, $s) = rgb2hls($r, $g, $b);
+
+    if ($tint < 0) {
+        $l = $l * (1.0 + $tint);
+    }
+    else {
+        $l = $l * (1.0 - $tint) + (1.0 - 1.0 * (1.0 - $tint));
+    }
+
+    return scalar hls2rgb($h, $l, $s);
 }
 
 1;
