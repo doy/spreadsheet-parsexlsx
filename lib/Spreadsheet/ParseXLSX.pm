@@ -109,7 +109,7 @@ sub _parse_sheet {
 
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
         my $val = $cell->first_child('v')->text;
-        my $type = $cell->att('t');
+        my $type = $cell->att('t') || 'n';
 
         my $long_type;
         if ($type eq 's') {
