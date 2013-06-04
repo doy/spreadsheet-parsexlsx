@@ -358,8 +358,8 @@ sub _parse_styles {
             # UnderlineStyle => $iUnderline,
             Name           => $_->first_child('name')->att('val'),
 
-            # Bold      => $bBold,
-            # Italic    => $bItalic,
+            Bold      => $_->has_child('b') ? 1 : 0,
+            Italic    => $_->has_child('i') ? 1 : 0,
             # Underline => $bUnderline,
             # Strikeout => $bStrikeout,
         )
