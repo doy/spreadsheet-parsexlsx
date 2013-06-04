@@ -306,9 +306,14 @@ sub _parse_styles {
             # Attr           => $iAttr,
             # XXX not sure if there's a better way to keep the indexing stuff
             # intact rather than just going straight to #xxxxxx
-            Color          => $self->_color(
-                $workbook->{Color},
-                $_->first_child('color')
+            # XXX also not sure what it means for the color tag to be missing,
+            # just assuming black for now
+            Color          => ($_->first_child('color')
+                ? $self->_color(
+                    $workbook->{Color},
+                    $_->first_child('color')
+                )
+                : '#000000'
             ),
             # Super          => $iSuper,
             # UnderlineStyle => $iUnderline,
