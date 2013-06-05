@@ -132,10 +132,19 @@ sub _parse_sheet {
             die "unimplemented type $type"; # XXX
         }
 
+        my $format = $sheet->{_Book}{Format}[$cell->att('s') || 0];
+
+        # see the list of built-in formats below in _parse_styles
+        # XXX probably should figure this out from the actual format string,
+        # but that's not entirely trivial
+        if (grep { $format->{FmtIdx} == $_ } 14..22, 45..47) {
+            $long_type = 'Date';
+        }
+
         $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new(
             Val    => $val,
             Type   => $long_type,
-            Format => $sheet->{_Book}{Format}[$cell->att('s') || 0],
+            Format => $format,
             ($cell->first_child('f')
                 ? (Formula => $cell->first_child('f')->text)
                 : ()),
