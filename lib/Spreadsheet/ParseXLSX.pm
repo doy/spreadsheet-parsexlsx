@@ -159,7 +159,9 @@ sub _parse_sheet {
     my $default_column_width = $format->att('baseColWidth') || 10;
 
     for my $col ($sheet_xml->find_nodes('//col')) {
-        $column_widths[$col->att('min') - 1] = $col->att('width');
+        my $width = $col->att('width');
+        $column_widths[$_ - 1] = $width
+            for $col->att('min')..$col->att('max');
     }
 
     for my $row ($sheet_xml->find_nodes('//row')) {
