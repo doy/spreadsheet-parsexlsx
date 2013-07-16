@@ -1,6 +1,7 @@
 package Spreadsheet::ParseXLSX;
 use strict;
 use warnings;
+# ABSTRACT: parse XLSX files
 
 use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
@@ -8,9 +9,37 @@ use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel;
 use XML::Twig;
 
+=head1 SYNOPSIS
+
+  use Spreadsheet::ParseXLSX;
+
+  my $parser = Spreadsheet::ParseXLSX->new;
+  my $workbook = $parser->parse("file.xlsx");
+  # see Spreadsheet::ParseExcel for further documentation
+
+=head1 DESCRIPTION
+
+This module is an adaptor for L<Spreadsheet::ParseExcel> that reads XLSX files.
+
+=cut
+
+=method new
+
+Returns a new parser instance. Takes no parameters.
+
+=cut
+
 sub new {
     bless {}, shift;
 }
+
+=method parse($file)
+
+Parses an XLSX file. Parsing errors throw an exception. C<$file> can be either
+a filename or an open filehandle. Returns a
+L<Spreadsheet::ParseExcel::Workbook> instance containing the parsed data.
+
+=cut
 
 sub parse {
     my $self = shift;
@@ -563,5 +592,48 @@ sub _apply_tint {
 
     return scalar hls2rgb($h, $l, $s);
 }
+
+=head1 BUGS
+
+No known bugs.
+
+Please report any bugs to GitHub Issues at
+L<https://github.com/doy/spreadsheet-parsexlsx/issues>.
+
+=head1 SEE ALSO
+
+L<Spreadsheet::ParseExcel>: The equivalent, for XLS files.
+
+L<Spreadsheet::XLSX>: An older, less robust and featureful implementation.
+
+=head1 SUPPORT
+
+You can find this documentation for this module with the perldoc command.
+
+    perldoc Spreadsheet::ParseXLSX
+
+You can also look for information at:
+
+=over 4
+
+=item * MetaCPAN
+
+L<https://metacpan.org/release/Spreadsheet-ParseXLSX>
+
+=item * RT: CPAN's request tracker
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Spreadsheet-ParseXLSX>
+
+=item * Github
+
+L<https://github.com/doy/spreadsheet-parsexlsx>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Spreadsheet-ParseXLSX>
+
+=back
+
+=cut
 
 1;
