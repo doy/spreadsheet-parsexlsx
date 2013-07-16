@@ -47,6 +47,7 @@ sub parse {
 
     my $zip = Archive::Zip->new;
     if (openhandle($file)) {
+        bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
         $zip->readFromFileHandle($file) == Archive::Zip::AZ_OK
             or die "Can't open filehandle as a zip file";
     }
