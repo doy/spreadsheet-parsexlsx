@@ -162,7 +162,8 @@ sub _parse_sheet {
             die "unimplemented type $type"; # XXX
         }
 
-        my $format = $sheet->{_Book}{Format}[$cell->att('s') || 0];
+        my $format_idx = $cell->att('s') || 0;
+        my $format = $sheet->{_Book}{Format}[$format_idx];
 
         # see the list of built-in formats below in _parse_styles
         # XXX probably should figure this out from the actual format string,
@@ -171,14 +172,19 @@ sub _parse_sheet {
             $long_type = 'Date';
         }
 
-        $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new(
-            Val    => $val,
-            Type   => $long_type,
-            Format => $format,
+        my $cell = Spreadsheet::ParseExcel::Cell->new(
+            Val      => $val,
+            Type     => $long_type,
+            Format   => $format,
+            FormatNo => $format_idx,
             ($cell->first_child('f')
                 ? (Formula => $cell->first_child('f')->text)
                 : ()),
         );
+        $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
+            $cell, $sheet->{_Book}
+        );
+        $sheet->{Cells}[$row][$col] = $cell;
     }
 
     my @column_widths;
