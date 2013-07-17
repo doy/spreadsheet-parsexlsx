@@ -641,6 +641,16 @@ L<http://cpanratings.perl.org/d/Spreadsheet-ParseXLSX>
 
 =back
 
+=head1 SPONSORS
+
+Parts of this code were paid for by
+
+=over 4
+
+=item Socialflow L<http://socialflow.com>
+
+=back
+
 =cut
 
 1;
