@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.03  2013-07-26
       - fix exception when the 'selection' node doesn't exist (reported by
         melick, #1)
 
