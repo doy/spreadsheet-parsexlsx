@@ -214,9 +214,13 @@ sub _parse_sheet {
     ];
 
     my ($selection) = $sheet_xml->find_nodes('//selection');
-    my $cell = $selection->att('activeCell');
-
-    $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
+    if ($selection) {
+        my $cell = $selection->att('activeCell');
+        $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
+    }
+    else {
+        $sheet->{Selection} = [ 0, 0 ];
+    }
 }
 
 sub _parse_shared_strings {
