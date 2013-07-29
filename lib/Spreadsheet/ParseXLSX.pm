@@ -126,9 +126,9 @@ sub _parse_sheet {
 
     # XXX need a fallback here, the dimension tag is optional
     my ($dimension) = $sheet_xml->find_nodes('//dimension');
-    my ($topleft, $bottomright) = split ':', $dimension->att('ref');
-    my ($rmin, $cmin) = $self->_cell_to_row_col($topleft);
-    my ($rmax, $cmax) = $self->_cell_to_row_col($bottomright);
+    my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
+        $dimension->att('ref')
+    );
 
     $sheet->{MinRow} = $rmin;
     $sheet->{MinCol} = $cmin;
@@ -550,6 +550,19 @@ sub _base_path_for {
     pop @path;
 
     return join('/', @path) . '/';
+}
+
+sub _dimensions {
+    my $self = shift;
+    my ($dim) = @_;
+
+    my ($topleft, $bottomright) = split ':', $dim;
+    $bottomright = $topleft unless defined $bottomright;
+
+    my ($rmin, $cmin) = $self->_cell_to_row_col($topleft);
+    my ($rmax, $cmax) = $self->_cell_to_row_col($bottomright);
+
+    return ($rmin, $cmin, $rmax, $cmax);
 }
 
 sub _cell_to_row_col {
