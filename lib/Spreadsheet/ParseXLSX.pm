@@ -73,9 +73,11 @@ sub _parse_workbook {
     my ($version)    = $files->{workbook}->find_nodes('//fileVersion');
     my ($properties) = $files->{workbook}->find_nodes('//workbookPr');
 
-    $workbook->{Version} = join('-',
-        map { $version->att($_) } qw(appName lowestEdited)
-    );
+    $workbook->{Version} = $version->att('appName')
+                         . ($version->att('lowestEdited')
+                             ? ('-' . $version->att('lowestEdited'))
+                             : (""));
+
     $workbook->{Flag1904} = $properties->att('date1904') ? 1 : 0;
 
     $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
