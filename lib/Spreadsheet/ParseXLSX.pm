@@ -240,6 +240,8 @@ sub _parse_themes {
     my $self = shift;
     my ($themes) = @_;
 
+    return {} unless $themes;
+
     my @color = map {
         $_->name eq 'a:sysClr' ? $_->att('lastClr') : $_->att('val')
     } $themes->find_nodes('//a:clrScheme/*/*');
