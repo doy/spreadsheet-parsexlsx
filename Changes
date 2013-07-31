@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.04  2013-07-31
       - fix spreadsheets that only have a single cell (servuscmj, #2)
       - fixes for some variations in how xlsx files are generated (tophopstop,
         #3)
