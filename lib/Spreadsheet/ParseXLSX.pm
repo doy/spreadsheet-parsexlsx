@@ -574,11 +574,14 @@ sub _cell_to_row_col {
     my ($cell) = @_;
 
     my ($col, $row) = $cell =~ /([A-Z]+)([0-9]+)/;
-    $col =~ tr/A-Z/0-9A-P/;
-    $col = POSIX::strtol($col, 26);
-    $row = $row - 1;
 
-    return ($row, $col);
+    (my $ncol = $col) =~ tr/A-Z/1-9A-Q/;
+    $ncol = POSIX::strtol($ncol, 27);
+    $ncol -= 1;
+
+    my $nrow = $row - 1;
+
+    return ($nrow, $ncol);
 }
 
 sub _color {
