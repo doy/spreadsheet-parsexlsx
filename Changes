@@ -1,6 +1,7 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - more fixes for xlsx format variations (mikaelg79, #5)
 
 0.04  2013-07-31
       - fix spreadsheets that only have a single cell (servuscmj, #2)
