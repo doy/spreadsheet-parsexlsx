@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.05  2013-07-31
       - more fixes for xlsx format variations (mikaelg79, #5)
 
 0.04  2013-07-31
