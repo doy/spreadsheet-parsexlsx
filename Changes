@@ -1,6 +1,10 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - fix spreadsheets that only have a single cell (servuscmj, #2)
+      - fixes for some variations in how xlsx files are generated (tophopstop,
+        #3)
+      - fix spreadsheets with more than 26 columns (tophopstop, #4)
 
 0.03  2013-07-26
       - fix exception when the 'selection' node doesn't exist (reported by
