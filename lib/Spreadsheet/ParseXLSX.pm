@@ -392,7 +392,7 @@ sub _parse_styles {
         49 => '@',
         (map {
             $_->att('numFmtId') => $_->att('formatCode')
-        } $styles->find_nodes('//numFmt')),
+        } $styles->find_nodes('//numFmts/numFmt')),
     );
 
     my @font = map {
@@ -419,7 +419,7 @@ sub _parse_styles {
             # Underline => $bUnderline,
             # Strikeout => $bStrikeout,
         )
-    } $styles->find_nodes('//font');
+    } $styles->find_nodes('//fonts/font');
 
     my @format = map {
         my $alignment = $_->first_child('alignment');
