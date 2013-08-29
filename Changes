@@ -1,6 +1,7 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - fix conversion between cell and column index for large column indices
 
 0.05  2013-07-31
       - more fixes for xlsx format variations (mikaelg79, #5)
