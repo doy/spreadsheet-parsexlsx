@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.06  2013-08-29
       - fix conversion between cell and column index for large column indices
 
 0.05  2013-07-31
