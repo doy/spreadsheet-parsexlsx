@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - support boolean and string format cells (Drokaten, #6)
+      - provide a working minimum version for Spreadsheet::ParseExcel (rjbs)
 
 0.06  2013-08-29
       - fix conversion between cell and column index for large column indices
