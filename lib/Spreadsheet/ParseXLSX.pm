@@ -160,6 +160,10 @@ sub _parse_sheet {
         elsif ($type eq 'd') {
             $long_type = 'Date';
         }
+        elsif ($type eq 'b') {
+            $long_type = 'Text';
+            $val = $val ? "TRUE" : "FALSE";
+        }
         else {
             die "unimplemented type $type"; # XXX
         }
