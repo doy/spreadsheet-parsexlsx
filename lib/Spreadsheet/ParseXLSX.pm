@@ -6,7 +6,7 @@ use warnings;
 use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
-use Spreadsheet::ParseExcel;
+use Spreadsheet::ParseExcel 0.55;
 use XML::Twig;
 
 =head1 SYNOPSIS
