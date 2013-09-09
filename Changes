@@ -3,6 +3,7 @@ Revision history for Spreadsheet-ParseXLSX
 {{$NEXT}}
       - fix string lookups when the workbook contains cells with complicated
         formatting (Drokaten, #6)
+      - fix warnings during parsing when using -w
 
 0.07  2013-09-05
       - support boolean and string format cells (Drokaten, #6)
