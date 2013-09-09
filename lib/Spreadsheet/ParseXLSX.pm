@@ -238,8 +238,11 @@ sub _parse_shared_strings {
 
     return [
         map {
-            { Text => $_->text } # XXX are Unicode, Rich, or Ext important?
-        } $strings->find_nodes('//t')
+            my $node = $_;
+            # XXX this discards information about formatting within cells
+            # not sure how to represent that
+            { Text => join('', map { $_->text } $node->find_nodes('t')) }
+        } $strings->find_nodes('//si')
     ];
 }
 
