@@ -538,7 +538,7 @@ sub _parse_xml {
     die "no subfile named $subfile" unless $member;
 
     my $xml = XML::Twig->new;
-    $xml->parse($member->contents);
+    $xml->parse(scalar $member->contents);
 
     return $xml;
 }
