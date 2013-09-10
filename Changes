@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.08  2013-09-10
       - fix string lookups when the workbook contains cells with complicated
         formatting (Drokaten, #6)
       - fix warnings during parsing when using -w
