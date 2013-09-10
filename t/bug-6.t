@@ -28,8 +28,6 @@ my %cells = (
 );
 
 my $ws = $wb->worksheet('DSGroups');
-my ($row_min, $row_max) = $ws->row_range;
-my ($col_min, $col_max) = $ws->col_range;
 for my $row (sort { $a <=> $b } keys %cells) {
     for my $col (sort { $a <=> $b } keys %{ $cells{$row} }) {
         my $cell = $ws->get_cell($row, $col);
