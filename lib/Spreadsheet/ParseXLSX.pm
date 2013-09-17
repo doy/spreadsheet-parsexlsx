@@ -126,18 +126,28 @@ sub _parse_sheet {
     my $self = shift;
     my ($sheet, $sheet_xml) = @_;
 
-    # XXX need a fallback here, the dimension tag is optional
-    my ($dimension) = $sheet_xml->find_nodes('//dimension');
-    my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
-        $dimension->att('ref')
-    );
+    my @cells = $sheet_xml->find_nodes('//sheetData/row/c');
 
-    $sheet->{MinRow} = $rmin;
-    $sheet->{MinCol} = $cmin;
-    $sheet->{MaxRow} = $rmax;
-    $sheet->{MaxCol} = $cmax;
+    if (@cells) {
+        # XXX need a fallback here, the dimension tag is optional
+        my ($dimension) = $sheet_xml->find_nodes('//dimension');
+        my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
+            $dimension->att('ref')
+        );
 
-    for my $cell ($sheet_xml->find_nodes('//sheetData/row/c')) {
+        $sheet->{MinRow} = $rmin;
+        $sheet->{MinCol} = $cmin;
+        $sheet->{MaxRow} = $rmax;
+        $sheet->{MaxCol} = $cmax;
+    }
+    else {
+        $sheet->{MinRow} = 0;
+        $sheet->{MinCol} = 0;
+        $sheet->{MaxRow} = -1;
+        $sheet->{MaxCol} = -1;
+    }
+
+    for my $cell (@cells) {
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
         my $val = $cell->first_child('v')
             ? $cell->first_child('v')->text
