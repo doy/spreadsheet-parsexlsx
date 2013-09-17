@@ -164,6 +164,9 @@ sub _parse_sheet {
             $long_type = 'Text';
             $val = $val ? "TRUE" : "FALSE";
         }
+        elsif ($type eq 'e') {
+            $long_type = 'Text';
+        }
         elsif ($type eq 'str') {
             $long_type = 'Text';
         }
