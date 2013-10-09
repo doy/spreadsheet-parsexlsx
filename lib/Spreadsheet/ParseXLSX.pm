@@ -237,8 +237,16 @@ sub _parse_sheet {
 
     my ($selection) = $sheet_xml->find_nodes('//selection');
     if ($selection) {
-        my $cell = $selection->att('activeCell');
-        $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
+        if (my $cell = $selection->att('activeCell')) {
+            $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
+        }
+        elsif (my $range = $selection->att('sqref')) {
+            my ($topleft, $bottomright) = $range =~ /([^:]+):([^:]+)/;
+            $sheet->{Selection} = [
+                $self->_cell_to_row_col($topleft),
+                $self->_cell_to_row_col($bottomright),
+            ];
+        }
     }
     else {
         $sheet->{Selection} = [ 0, 0 ];
