@@ -254,7 +254,7 @@ sub _parse_shared_strings {
             my $node = $_;
             # XXX this discards information about formatting within cells
             # not sure how to represent that
-            { Text => join('', map { $_->text } $node->find_nodes('t')) }
+            { Text => join('', map { $_->text } $node->find_nodes('.//t')) }
         } $strings->find_nodes('//si')
     ];
 }
