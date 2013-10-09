@@ -1,6 +1,12 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - fix getting cell values for cells with rich text contents
+        (merrilymeredith, #11)
+      - support merged cells (rolaf, #10)
+      - row_range and col_range for empty worksheets (rolaf, #8)
+      - support error cells (rolaf, #7)
+      - support worksheets with a range selection
 
 0.08  2013-09-10
       - fix string lookups when the workbook contains cells with complicated
