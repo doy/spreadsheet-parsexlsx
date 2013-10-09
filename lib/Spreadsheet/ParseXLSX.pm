@@ -147,6 +147,26 @@ sub _parse_sheet {
         $sheet->{MaxCol} = -1;
     }
 
+    my @merged_cells;
+    for my $merge_area ($sheet_xml->find_nodes('//mergeCells/mergeCell')) {
+        if (my $ref = $merge_area->att('ref')) {
+            my ($topleft, $bottomright) = $ref =~ /([^:]+):([^:]+)/;
+
+            my ($toprow, $leftcol)     = $self->_cell_to_row_col($topleft);
+            my ($bottomrow, $rightcol) = $self->_cell_to_row_col($bottomright);
+
+            push @{ $sheet->{MergedArea} }, [
+                $toprow, $leftcol,
+                $bottomrow, $rightcol,
+            ];
+            for my $row ($toprow .. $bottomrow) {
+                for my $col ($leftcol .. $rightcol) {
+                    push(@merged_cells, [$row, $col]);
+                }
+            }
+        }
+    }
+
     for my $cell (@cells) {
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
         my $val = $cell->first_child('v')
@@ -186,6 +206,9 @@ sub _parse_sheet {
 
         my $format_idx = $cell->att('s') || 0;
         my $format = $sheet->{_Book}{Format}[$format_idx];
+        $format->{Merged} = !!grep {
+            $row == $_->[0] && $col == $_->[1]
+        } @merged_cells;
 
         # see the list of built-in formats below in _parse_styles
         # XXX probably should figure this out from the actual format string,
@@ -197,6 +220,7 @@ sub _parse_sheet {
         my $cell = Spreadsheet::ParseExcel::Cell->new(
             Val      => $val,
             Type     => $long_type,
+            Merged   => $format->{Merged},
             Format   => $format,
             FormatNo => $format_idx,
             ($cell->first_child('f')
