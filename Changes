@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.09  2013-10-09
       - fix getting cell values for cells with rich text contents
         (merrilymeredith, #11)
       - support merged cells (rolaf, #10)
