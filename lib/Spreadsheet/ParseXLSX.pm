@@ -92,7 +92,8 @@ sub _parse_workbook {
     $workbook->{FormatStr} = $styles->{FormatStr};
     $workbook->{Font}      = $styles->{Font};
 
-    $workbook->{PkgStr} = $self->_parse_shared_strings($files->{strings});
+    $workbook->{PkgStr} = $self->_parse_shared_strings($files->{strings})
+        if $files->{strings};
 
     # $workbook->{StandardWidth} = ...;
 
@@ -169,10 +170,11 @@ sub _parse_sheet {
 
     for my $cell (@cells) {
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
-        my $val = $cell->first_child('v')
-            ? $cell->first_child('v')->text
-            : undef;
         my $type = $cell->att('t') || 'n';
+        my $val_xml = $type eq 'inlineStr'
+            ? $cell->first_child('is')->first_child('t')
+            : $cell->first_child('v');
+        my $val = $val_xml ? $val_xml->text : undef;
 
         my $long_type;
         if (!defined($val)) {
@@ -197,7 +199,7 @@ sub _parse_sheet {
         elsif ($type eq 'e') {
             $long_type = 'Text';
         }
-        elsif ($type eq 'str') {
+        elsif ($type eq 'str' || $type eq 'inlineStr') {
             $long_type = 'Text';
         }
         else {
@@ -545,12 +547,9 @@ sub _extract_files {
         $zip,
         $self->_rels_for($wb_name)
     );
-    my $strings_xml = $self->_parse_xml(
-        $zip,
-        $path_base . ($wb_rels->find_nodes(
-            qq<//Relationship[\@Type="$type_base/sharedStrings"]>
-        ))[0]->att('Target')
-    );
+    my ($strings_xml) = map {
+        $self->_parse_xml($zip, $path_base . $_->att('Target'))
+    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>);
     my $styles_xml = $self->_parse_xml(
         $zip,
         $path_base . ($wb_rels->find_nodes(
@@ -568,10 +567,12 @@ sub _extract_files {
 
     return {
         workbook => $wb_xml,
-        strings  => $strings_xml,
         styles   => $styles_xml,
         sheets   => \%worksheet_xml,
         themes   => \%themes_xml,
+        ($strings_xml
+            ? (strings => $strings_xml)
+            : ()),
     };
 }
 
