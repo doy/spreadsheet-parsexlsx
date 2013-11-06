@@ -5,7 +5,7 @@ use Test::More;
 
 use Spreadsheet::ParseXLSX;
 
-my $wb = Spreadsheet::ParseXLSX->new->parse('t/data/bug-7.xlsx');
+my $wb = Spreadsheet::ParseXLSX->new->parse('t/data/bug-8.xlsx');
 is($wb->worksheet_count, 3);
 
 my $ws = $wb->worksheet(2);
