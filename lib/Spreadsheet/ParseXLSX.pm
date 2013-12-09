@@ -454,6 +454,8 @@ sub _parse_styles {
     );
 
     my @font = map {
+        my $vert = $_->first_child('vertAlign');
+        my $under = $_->first_child('u');
         Spreadsheet::ParseExcel::Font->new(
             Height         => 0+$_->first_child('sz')->att('val'),
             # Attr           => $iAttr,
@@ -468,14 +470,31 @@ sub _parse_styles {
                 )
                 : '#000000'
             ),
-            # Super          => $iSuper,
-            # UnderlineStyle => $iUnderline,
+            Super          => ($vert
+                ? ($vert->att('val') eq 'superscript' ? 1
+                 : $vert->att('val') eq 'subscript'   ? 2
+                 :                                      0)
+                : 0
+            ),
+            # XXX not sure what the single accounting and double accounting
+            # underline styles map to in xlsx. also need to map the new
+            # underline styles
+            UnderlineStyle => ($under
+                # XXX sometimes style xml files can contain just <u/> with no
+                # val attribute. i think this means single underline, but not
+                # sure
+                ? (!$under->att('val')            ? 1
+                 : $under->att('val') eq 'single' ? 1
+                 : $under->att('val') eq 'double' ? 2
+                 :                                  0)
+                : 0
+            ),
             Name           => $_->first_child('name')->att('val'),
 
             Bold      => $_->has_child('b') ? 1 : 0,
             Italic    => $_->has_child('i') ? 1 : 0,
-            # Underline => $bUnderline,
-            # Strikeout => $bStrikeout,
+            Underline => $_->has_child('u') ? 1 : 0,
+            Strikeout => $_->has_child('strike') ? 1 : 0,
         )
     } $styles->find_nodes('//fonts/font');
 
