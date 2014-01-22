@@ -703,9 +703,51 @@ sub _apply_tint {
     return scalar hls2rgb($h, $l, $s);
 }
 
+=head1 INCOMPATIBILITIES
+
+This module returns data using classes from L<Spreadsheet::ParseExcel>, so for
+the most part, it should just be a drop-in replacement. That said, there are a
+couple areas where the data returned is intentionally different:
+
+=over 4
+
+=item Colors
+
+In Spreadsheet::ParseExcel, colors are represented by integers which index into
+the color table, and you have to use
+C<< Spreadsheet::ParseExcel->ColorIdxToRGB >> in order to get the actual value
+out. In Spreadsheet::ParseXLSX, while the color table still exists, cells are
+also allowed to specify their color directly rather than going through the
+color table. In order to avoid confusion, I normalize all color values in
+Spreadsheet::ParseXLSX to their string RGB format (C<"#0088ff">). This affects
+the C<Fill>, C<BdrColor>, and C<BdrDiag> properties of formats, and the
+C<Color> property of fonts.
+
+=item Formulas
+
+Spreadsheet::ParseExcel doesn't support formulas. Spreadsheet::ParseXLSX
+provides basic formula support by returning the text of the formula as part of
+the cell data. You can access it via C<< $cell->{Formula} >>. Note that the
+restriction still holds that formula cell values aren't available unless they
+were explicitly provided when the spreadsheet was written.
+
+=back
+
 =head1 BUGS
 
-No known bugs.
+=over 4
+
+=item Worksheets without the C<dimension> tag are not supported
+
+=item Intra-cell formatting is discarded
+
+=item Diagonal border styles are ignored
+
+=back
+
+In addition, there are still a few areas which are not yet implemented (the
+XLSX spec is quite large). If you run into any of those, bug reports are quite
+welcome.
 
 Please report any bugs to GitHub Issues at
 L<https://github.com/doy/spreadsheet-parsexlsx/issues>.
