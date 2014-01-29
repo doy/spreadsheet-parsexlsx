@@ -673,11 +673,9 @@ sub _color {
     my $self = shift;
     my ($colors, $color_node) = @_;
 
-    my $color; # XXX
-    if ($color_node) {
-        $color = '#000000' # XXX
-            if $color_node->att('auto');
-        $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB( # XXX
+    my $color;
+    if ($color_node && !$color_node->att('auto')) {
+        $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB(
             $color_node->att('indexed')
         ) if defined $color_node->att('indexed');
         $color = '#' . substr($color_node->att('rgb'), 2, 6)
