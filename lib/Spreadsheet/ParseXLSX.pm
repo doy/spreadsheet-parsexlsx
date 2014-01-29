@@ -499,20 +499,26 @@ sub _parse_styles {
     } $styles->find_nodes('//fonts/font');
 
     my @format = map {
-        my $alignment = $_->first_child('alignment');
+        my $alignment  = $_->first_child('alignment');
+        my $protection = $_->first_child('protection');
         Spreadsheet::ParseExcel::Format->new(
             IgnoreFont         => !$_->att('applyFont'),
             IgnoreFill         => !$_->att('applyFill'),
             IgnoreBorder       => !$_->att('applyBorder'),
             IgnoreAlignment    => !$_->att('applyAlignment'),
             IgnoreNumberFormat => !$_->att('applyNumberFormat'),
+            IgnoreProtection   => !$_->att('applyProtection'),
 
             FontNo => 0+$_->att('fontId'),
             Font   => $font[$_->att('fontId')],
             FmtIdx => 0+$_->att('numFmtId'),
 
-            # Lock     => $iLock,
-            # Hidden   => $iHidden,
+            Lock => $protection
+                ? $protection->att('locked')
+                : 0,
+            Hidden => $protection
+                ? $protection->att('hidden')
+                : 0,
             # Style    => $iStyle,
             # Key123   => $i123,
             AlignH => $alignment
