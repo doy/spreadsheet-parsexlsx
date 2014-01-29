@@ -725,7 +725,8 @@ also allowed to specify their color directly rather than going through the
 color table. In order to avoid confusion, I normalize all color values in
 Spreadsheet::ParseXLSX to their string RGB format (C<"#0088ff">). This affects
 the C<Fill>, C<BdrColor>, and C<BdrDiag> properties of formats, and the
-C<Color> property of fonts.
+C<Color> property of fonts. Note that the default color is represented by
+C<undef> (the same thing that C<ColorIdxToRGB> would return).
 
 =item Formulas
 
