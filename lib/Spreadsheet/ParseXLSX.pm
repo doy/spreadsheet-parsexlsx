@@ -74,10 +74,12 @@ sub _parse_workbook {
     my ($version)    = $files->{workbook}->find_nodes('//fileVersion');
     my ($properties) = $files->{workbook}->find_nodes('//workbookPr');
 
+    if ($version) {
     $workbook->{Version} = $version->att('appName')
                          . ($version->att('lowestEdited')
                              ? ('-' . $version->att('lowestEdited'))
                              : (""));
+    }
 
     $workbook->{Flag1904} = $properties->att('date1904') ? 1 : 0;
 
@@ -118,7 +120,7 @@ sub _parse_workbook {
     $workbook->{SheetCount} = scalar(@sheets);
 
     my ($node) = $files->{workbook}->find_nodes('//workbookView');
-    my $selected = $node->att('activeTab');
+    my $selected = $node ? $node->att('activeTab') : undef;
     $workbook->{SelectedSheet} = defined($selected) ? 0+$selected : 0;
 
     return $workbook;
@@ -133,10 +135,14 @@ sub _parse_sheet {
     if (@cells) {
         # XXX need a fallback here, the dimension tag is optional
         my ($dimension) = $sheet_xml->find_nodes('//dimension');
-        my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
-            $dimension->att('ref')
-        );
-
+        my ($rmin, $cmin, $rmax, $cmax);
+        my $ref = $dimension->att('ref');
+        if ($ref !~ /:/)
+          { ($rmin, $cmin, $rmax, $cmax) = (0, 0, -1, -1); }
+        else {
+          ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
+            $dimension->att('ref'));
+        }
         $sheet->{MinRow} = $rmin;
         $sheet->{MinCol} = $cmin;
         $sheet->{MaxRow} = $rmax;
@@ -149,7 +155,7 @@ sub _parse_sheet {
         $sheet->{MaxCol} = -1;
     }
 
-    my @merged_cells;
+    my %merged_cells;
     for my $merge_area ($sheet_xml->find_nodes('//mergeCells/mergeCell')) {
         if (my $ref = $merge_area->att('ref')) {
             my ($topleft, $bottomright) = $ref =~ /([^:]+):([^:]+)/;
@@ -163,7 +169,7 @@ sub _parse_sheet {
             ];
             for my $row ($toprow .. $bottomrow) {
                 for my $col ($leftcol .. $rightcol) {
-                    push(@merged_cells, [$row, $col]);
+                    $merged_cells {"$row.$col"} = 1;
                 }
             }
         }
@@ -172,9 +178,17 @@ sub _parse_sheet {
     for my $cell (@cells) {
         my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
         my $type = $cell->att('t') || 'n';
-        my $val_xml = $type eq 'inlineStr'
-            ? $cell->first_child('is')->first_child('t')
-            : $cell->first_child('v');
+        $sheet->{MaxRow} = $row;
+        $sheet->{MaxCol} = $col;
+        my $val_xml;
+        if ($type ne 'inlineStr')
+          { $val_xml = $cell->first_child('v'); }
+        else {
+          foreach my $tnode ($cell->find_nodes ('.//t')) {
+            $val_xml = $tnode;
+            last;
+          }
+        }
         my $val = $val_xml ? $val_xml->text : undef;
 
         my $long_type;
@@ -209,9 +223,7 @@ sub _parse_sheet {
 
         my $format_idx = $cell->att('s') || 0;
         my $format = $sheet->{_Book}{Format}[$format_idx];
-        $format->{Merged} = !!grep {
-            $row == $_->[0] && $col == $_->[1]
-        } @merged_cells;
+        $format->{Merged} = exists $merged_cells {"$row.$col"} ? 1 : 0;
 
         # see the list of built-in formats below in _parse_styles
         # XXX probably should figure this out from the actual format string,
@@ -680,8 +692,12 @@ sub _color {
         ) if defined $color_node->att('indexed');
         $color = '#' . substr($color_node->att('rgb'), 2, 6)
             if defined $color_node->att('rgb');
-        $color = '#' . $colors->[$color_node->att('theme')]
-            if defined $color_node->att('theme');
+        my $theme = $color_node->att('theme');
+        if (defined $theme) {
+          if (defined $colors->[$theme]) {
+            $color = '#' . $colors->[$theme];
+          }
+        }
 
         $color = $self->_apply_tint($color, $color_node->att('tint'))
             if $color_node->att('tint');
