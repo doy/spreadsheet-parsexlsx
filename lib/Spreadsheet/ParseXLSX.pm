@@ -284,14 +284,24 @@ sub _parse_shared_strings {
     my $self = shift;
     my ($strings) = @_;
 
-    return [
-        map {
-            my $node = $_;
-            # XXX this discards information about formatting within cells
-            # not sure how to represent that
-            { Text => join('', map { $_->text } $node->find_nodes('.//t')) }
-        } $strings->find_nodes('//si')
-    ];
+    my $PkgStr = [];
+
+    if ($strings) {
+        my $xml = XML::Twig->new(
+            twig_handlers => {
+                'si' => sub {
+                    my ( $twig, $si ) = @_;
+
+                    push @$PkgStr, {
+                      Text => join( '', map { $_->text } $si->find_nodes('.//t') )
+                    };
+                    $twig->purge;
+                },
+            }
+        );
+        $xml->parse( $strings );
+    }
+    return $PkgStr;
 }
 
 sub _parse_themes {
@@ -573,9 +583,15 @@ sub _extract_files {
         $zip,
         $self->_rels_for($wb_name)
     );
-    my ($strings_xml) = map {
-        $self->_parse_xml($zip, $path_base . $_->att('Target'))
-    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>);
+
+    my $strings_xml = eval {
+      $zip->memberNamed( $path_base
+        .( $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>) )[0]->att('Target')
+      )->contents;
+    };
+    warn "got strings: " . length $strings_xml;
+    warn '$@: '. $@;
+
     my $styles_xml = $self->_parse_xml(
         $zip,
         $path_base . ($wb_rels->find_nodes(
