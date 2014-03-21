@@ -6,7 +6,7 @@ use warnings;
 use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
-use Spreadsheet::ParseExcel 0.55;
+use Spreadsheet::ParseExcel 0.61;
 use XML::Twig;
 
 =head1 SYNOPSIS
@@ -379,8 +379,8 @@ sub _parse_styles {
     my @fills = map {
         [
             $fill{$_->att('patternType')},
-            $self->_color($workbook->{Color}, $_->first_child('fgColor')),
-            $self->_color($workbook->{Color}, $_->first_child('bgColor')),
+            $self->_color($workbook->{Color}, $_->first_child('fgColor'), 1),
+            $self->_color($workbook->{Color}, $_->first_child('bgColor'), 1),
         ]
     } $styles->find_nodes('//fills/fill/patternFill');
 
@@ -671,17 +671,27 @@ sub _cell_to_row_col {
 
 sub _color {
     my $self = shift;
-    my ($colors, $color_node) = @_;
+    my ($colors, $color_node, $fill) = @_;
 
     my $color;
     if ($color_node && !$color_node->att('auto')) {
-        $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB(
-            $color_node->att('indexed')
-        ) if defined $color_node->att('indexed');
-        $color = '#' . substr($color_node->att('rgb'), 2, 6)
-            if defined $color_node->att('rgb');
-        $color = '#' . $colors->[$color_node->att('theme')]
-            if defined $color_node->att('theme');
+        if (defined $color_node->att('indexed')) {
+            # see https://rt.cpan.org/Public/Bug/Display.html?id=93065
+            if ($fill && $color_node->att('indexed') == 64) {
+                return '#FFFFFF';
+            }
+            else {
+                $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB(
+                    $color_node->att('indexed')
+                );
+            }
+        }
+        elsif (defined $color_node->att('rgb')) {
+            $color = '#' . substr($color_node->att('rgb'), 2, 6);
+        }
+        elsif (defined $color_node->att('theme')) {
+            $color = '#' . $colors->[$color_node->att('theme')];
+        }
 
         $color = $self->_apply_tint($color, $color_node->att('tint'))
             if $color_node->att('tint');

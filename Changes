@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - fix incompatibility with newer Spreadsheet::ParseExcel (reported by
+        dsteinbrunner, #22)
 
 0.13  2014-01-29
       - support locked and hidden cells (Tux, #15)
