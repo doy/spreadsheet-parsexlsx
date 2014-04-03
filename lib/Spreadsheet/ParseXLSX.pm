@@ -752,6 +752,18 @@ were explicitly provided when the spreadsheet was written.
 
 =over 4
 
+=item Large spreadsheets may cause segfaults on perl 5.14 and earlier
+
+This module internally uses XML::Twig, which makes it potentially subject to
+L<Bug #71636 for XML-Twig: Segfault with medium-sized document|https://rt.cpan.org/Public/Bug/Display.html?id=71636>
+on perl versions 5.14 and below (the underlying bug with perl weak references
+was fixed in perl 5.15.5). The larger and more complex the spreadsheet, the
+more likely to be affected, but the actual size at which it segfaults is
+platform dependent. On a 64-bit perl with 7.6gb memory, it was seen on
+spreadsheets about 300mb and above. You can work around this adding
+C<XML::Twig::_set_weakrefs(0)> to your code before parsing the spreadsheet,
+although this may have other consequences such as memory leaks.
+
 =item Worksheets without the C<dimension> tag are not supported
 
 =item Intra-cell formatting is discarded
