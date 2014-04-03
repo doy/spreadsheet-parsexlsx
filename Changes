@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.14  2014-04-03
       - fix incompatibility with newer Spreadsheet::ParseExcel (reported by
         dsteinbrunner, #22)
 
