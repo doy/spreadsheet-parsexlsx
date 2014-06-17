@@ -128,6 +128,11 @@ sub _parse_sheet {
     my $self = shift;
     my ($sheet, $sheet_xml) = @_;
 
+    my ($tab_color) = $sheet_xml->find_nodes('//sheetPr/tabColor');
+    if ($tab_color) {
+        $sheet->{TabColor} = $self->_color($sheet->{_Book}{Color}, $tab_color);
+    }
+
     my @cells = $sheet_xml->find_nodes('//sheetData/row/c');
 
     if (@cells) {
