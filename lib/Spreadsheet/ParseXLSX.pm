@@ -515,7 +515,7 @@ sub _parse_styles {
 
             Lock => $protection
                 ? $protection->att('locked')
-                : 0,
+                : 1,
             Hidden => $protection
                 ? $protection->att('hidden')
                 : 0,
