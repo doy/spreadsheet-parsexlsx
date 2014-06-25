@@ -2,6 +2,10 @@ Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
 
+0.14  2014-04-03
+      - fix incompatibility with newer Spreadsheet::ParseExcel (reported by
+        dsteinbrunner, #22)
+
 0.13  2014-01-29
       - support locked and hidden cells (Tux, #15)
       - "default color" is now returned as undef, rather than assuming it's

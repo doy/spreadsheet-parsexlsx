@@ -6,7 +6,7 @@ use warnings;
 use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
-use Spreadsheet::ParseExcel 0.55;
+use Spreadsheet::ParseExcel 0.61;
 use XML::Twig;
 
 =head1 SYNOPSIS
@@ -439,8 +439,8 @@ sub _parse_styles {
     my @fills = map {
         [
             $fill{$_->att('patternType')},
-            $self->_color($workbook->{Color}, $_->first_child('fgColor')),
-            $self->_color($workbook->{Color}, $_->first_child('bgColor')),
+            $self->_color($workbook->{Color}, $_->first_child('fgColor'), 1),
+            $self->_color($workbook->{Color}, $_->first_child('bgColor'), 1),
         ]
     } $styles->find_nodes('//fills/fill/patternFill');
 
@@ -737,17 +737,27 @@ sub _cell_to_row_col {
 
 sub _color {
     my $self = shift;
-    my ($colors, $color_node) = @_;
+    my ($colors, $color_node, $fill) = @_;
 
     my $color;
     if ($color_node && !$color_node->att('auto')) {
-        $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB(
-            $color_node->att('indexed')
-        ) if defined $color_node->att('indexed');
-        $color = '#' . substr($color_node->att('rgb'), 2, 6)
-            if defined $color_node->att('rgb');
-        $color = '#' . $colors->[$color_node->att('theme')]
-            if defined $color_node->att('theme');
+        if (defined $color_node->att('indexed')) {
+            # see https://rt.cpan.org/Public/Bug/Display.html?id=93065
+            if ($fill && $color_node->att('indexed') == 64) {
+                return '#FFFFFF';
+            }
+            else {
+                $color = '#' . Spreadsheet::ParseExcel->ColorIdxToRGB(
+                    $color_node->att('indexed')
+                );
+            }
+        }
+        elsif (defined $color_node->att('rgb')) {
+            $color = '#' . substr($color_node->att('rgb'), 2, 6);
+        }
+        elsif (defined $color_node->att('theme')) {
+            $color = '#' . $colors->[$color_node->att('theme')];
+        }
 
         $color = $self->_apply_tint($color, $color_node->att('tint'))
             if $color_node->att('tint');
@@ -807,6 +817,18 @@ were explicitly provided when the spreadsheet was written.
 =head1 BUGS
 
 =over 4
+
+=item Large spreadsheets may cause segfaults on perl 5.14 and earlier
+
+This module internally uses XML::Twig, which makes it potentially subject to
+L<Bug #71636 for XML-Twig: Segfault with medium-sized document|https://rt.cpan.org/Public/Bug/Display.html?id=71636>
+on perl versions 5.14 and below (the underlying bug with perl weak references
+was fixed in perl 5.15.5). The larger and more complex the spreadsheet, the
+more likely to be affected, but the actual size at which it segfaults is
+platform dependent. On a 64-bit perl with 7.6gb memory, it was seen on
+spreadsheets about 300mb and above. You can work around this adding
+C<XML::Twig::_set_weakrefs(0)> to your code before parsing the spreadsheet,
+although this may have other consequences such as memory leaks.
 
 =item Worksheets without the C<dimension> tag are not supported
 
