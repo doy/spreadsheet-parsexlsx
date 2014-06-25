@@ -144,6 +144,7 @@ sub _parse_sheet {
 
     my $sheet_xml = XML::Twig->new(
         twig_roots => {
+            #XXX need a fallback here, the dimension tag is optional
             'dimension' => sub {
                 my ($twig, $dimension) = @_;
 
@@ -232,7 +233,7 @@ sub _parse_sheet {
 
     # 2nd pass: cell/row building is dependent on having parsed the merge definitions
     # beforehand.
-    
+
     $sheet_xml = XML::Twig->new(
         twig_roots => {
             'sheetData/row' => sub {
@@ -316,7 +317,7 @@ sub _parse_sheet {
     if ( ! $sheet->{Cells} ){
         $sheet->{MaxRow} = $sheet->{MaxCol} = -1;
     }
-    
+
     $sheet->{DefRowHeight} = 0+$default_row_height;
     $sheet->{DefColWidth} = 0+$default_column_width;
     $sheet->{RowHeight} = [
@@ -340,7 +341,9 @@ sub _parse_shared_strings {
                 'si' => sub {
                     my ( $twig, $si ) = @_;
 
-                    push @$PkgStr, 
+                    # XXX this discards information about formatting within cells
+                    # not sure how to represent that
+                    push @$PkgStr,
                       join( '', map { $_->text } $si->find_nodes('.//t') );
                     $twig->purge;
                 },
