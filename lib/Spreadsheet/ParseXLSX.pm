@@ -126,131 +126,196 @@ sub _parse_workbook {
 
 sub _parse_sheet {
     my $self = shift;
-    my ($sheet, $sheet_xml) = @_;
+    my ($sheet, $sheet_file) = @_;
 
-    my @cells = $sheet_xml->find_nodes('//sheetData/row/c');
-
-    if (@cells) {
-        # XXX need a fallback here, the dimension tag is optional
-        my ($dimension) = $sheet_xml->find_nodes('//dimension');
-        my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
-            $dimension->att('ref')
-        );
-
-        $sheet->{MinRow} = $rmin;
-        $sheet->{MinCol} = $cmin;
-        $sheet->{MaxRow} = $rmax;
-        $sheet->{MaxCol} = $cmax;
-    }
-    else {
-        $sheet->{MinRow} = 0;
-        $sheet->{MinCol} = 0;
-        $sheet->{MaxRow} = -1;
-        $sheet->{MaxCol} = -1;
-    }
+    $sheet->{MinRow} = 0;
+    $sheet->{MinCol} = 0;
+    $sheet->{MaxRow} = -1;
+    $sheet->{MaxCol} = -1;
+    $sheet->{Selection} = [ 0, 0 ];
 
     my @merged_cells;
-    for my $merge_area ($sheet_xml->find_nodes('//mergeCells/mergeCell')) {
-        if (my $ref = $merge_area->att('ref')) {
-            my ($topleft, $bottomright) = $ref =~ /([^:]+):([^:]+)/;
-
-            my ($toprow, $leftcol)     = $self->_cell_to_row_col($topleft);
-            my ($bottomrow, $rightcol) = $self->_cell_to_row_col($bottomright);
-
-            push @{ $sheet->{MergedArea} }, [
-                $toprow, $leftcol,
-                $bottomrow, $rightcol,
-            ];
-            for my $row ($toprow .. $bottomrow) {
-                for my $col ($leftcol .. $rightcol) {
-                    push(@merged_cells, [$row, $col]);
-                }
-            }
-        }
-    }
-
-    for my $cell (@cells) {
-        my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
-        my $type = $cell->att('t') || 'n';
-        my $val_xml = $type eq 'inlineStr'
-            ? $cell->first_child('is')->first_child('t')
-            : $cell->first_child('v');
-        my $val = $val_xml ? $val_xml->text : undef;
-
-        my $long_type;
-        if (!defined($val)) {
-            $long_type = 'Text';
-            $val = '';
-        }
-        elsif ($type eq 's') {
-            $long_type = 'Text';
-            $val = $sheet->{_Book}{PkgStr}[$val]{Text};
-        }
-        elsif ($type eq 'n') {
-            $long_type = 'Numeric';
-            $val = defined($val) ? 0+$val : undef;
-        }
-        elsif ($type eq 'd') {
-            $long_type = 'Date';
-        }
-        elsif ($type eq 'b') {
-            $long_type = 'Text';
-            $val = $val ? "TRUE" : "FALSE";
-        }
-        elsif ($type eq 'e') {
-            $long_type = 'Text';
-        }
-        elsif ($type eq 'str' || $type eq 'inlineStr') {
-            $long_type = 'Text';
-        }
-        else {
-            die "unimplemented type $type"; # XXX
-        }
-
-        my $format_idx = $cell->att('s') || 0;
-        my $format = $sheet->{_Book}{Format}[$format_idx];
-        $format->{Merged} = !!grep {
-            $row == $_->[0] && $col == $_->[1]
-        } @merged_cells;
-
-        # see the list of built-in formats below in _parse_styles
-        # XXX probably should figure this out from the actual format string,
-        # but that's not entirely trivial
-        if (grep { $format->{FmtIdx} == $_ } 14..22, 45..47) {
-            $long_type = 'Date';
-        }
-
-        my $cell = Spreadsheet::ParseExcel::Cell->new(
-            Val      => $val,
-            Type     => $long_type,
-            Merged   => $format->{Merged},
-            Format   => $format,
-            FormatNo => $format_idx,
-            ($cell->first_child('f')
-                ? (Formula => $cell->first_child('f')->text)
-                : ()),
-        );
-        $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
-            $cell, $sheet->{_Book}
-        );
-        $sheet->{Cells}[$row][$col] = $cell;
-    }
 
     my @column_widths;
     my @row_heights;
 
-    my ($format) = $sheet_xml->find_nodes('//sheetFormatPr');
-    my $default_row_height = $format->att('defaultRowHeight') || 15;
-    my $default_column_width = $format->att('baseColWidth') || 10;
+    my $default_row_height   = 15;
+    my $default_column_width = 10;
 
-    for my $col ($sheet_xml->find_nodes('//col')) {
-        my $width = $col->att('width');
-        $column_widths[$_ - 1] = $width
-            for $col->att('min')..$col->att('max');
-    }
+    my $sheet_xml = XML::Twig->new(
+        twig_roots => {
+            #XXX need a fallback here, the dimension tag is optional
+            'dimension' => sub {
+                my ($twig, $dimension) = @_;
 
-    for my $row ($sheet_xml->find_nodes('//row')) {
-        $row_heights[$row->att('r') - 1] = $row->att('ht');
+                my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
+                    $dimension->att('ref')
+                );
+
+                $sheet->{MinRow} = $rmin;
+                $sheet->{MinCol} = $cmin;
+                $sheet->{MaxRow} = $rmax;
+                $sheet->{MaxCol} = $cmax;
+
+                $twig->purge;
+            },
+
+            'mergeCells/mergeCell' => sub {
+                my ( $twig, $merge_area ) = @_;
+
+                if (my $ref = $merge_area->att('ref')) {
+                    my ($topleft, $bottomright) = $ref =~ /([^:]+):([^:]+)/;
+
+                    my ($toprow, $leftcol)     = $self->_cell_to_row_col($topleft);
+                    my ($bottomrow, $rightcol) = $self->_cell_to_row_col($bottomright);
+
+                    push @{ $sheet->{MergedArea} }, [
+                        $toprow, $leftcol,
+                        $bottomrow, $rightcol,
+                    ];
+                    for my $row ($toprow .. $bottomrow) {
+                        for my $col ($leftcol .. $rightcol) {
+                            push(@merged_cells, [$row, $col]);
+                        }
+                    }
+                }
+
+                $twig->purge;
+            },
+
+            'sheetFormatPr' => sub {
+                my ( $twig, $format ) = @_;
+
+                $default_row_height   //= $format->att('defaultRowHeight');
+                $default_column_width //= $format->att('baseColWidth');
+
+                $twig->purge;
+            },
+
+            'col' => sub {
+                my ( $twig, $col ) = @_;
+
+                $column_widths[ $_ - 1 ] = $col->att('width')
+                    for ( $col->att('min') .. $col->att('max') );
+
+                $twig->purge;
+            },
+
+            'row' => sub {
+                my ( $twig, $row ) = @_;
+
+                $row_heights[ $row->att('r') - 1 ] = $row->att('ht');
+
+                $twig->purge;
+            },
+
+            'selection' => sub {
+                my ( $twig, $selection ) = @_;
+
+                if (my $cell = $selection->att('activeCell')) {
+                    $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
+                }
+                elsif (my $range = $selection->att('sqref')) {
+                    my ($topleft, $bottomright) = $range =~ /([^:]+):([^:]+)/;
+                    $sheet->{Selection} = [
+                        $self->_cell_to_row_col($topleft),
+                        $self->_cell_to_row_col($bottomright),
+                    ];
+                }
+
+                $twig->purge;
+            },
+
+        }
+    );
+
+    $sheet_xml->parse( $sheet_file );
+
+    # 2nd pass: cell/row building is dependent on having parsed the merge definitions
+    # beforehand.
+
+    $sheet_xml = XML::Twig->new(
+        twig_roots => {
+            'sheetData/row' => sub {
+                my ( $twig, $row_elt ) = @_;
+
+                for my $cell ( $row_elt->children('c') ){
+                    my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
+                    my $type = $cell->att('t') || 'n';
+                    my $val_xml = $type eq 'inlineStr'
+                        ? $cell->first_child('is')->first_child('t')
+                        : $cell->first_child('v');
+                    my $val = $val_xml ? $val_xml->text : undef;
+
+                    my $long_type;
+                    if (!defined($val)) {
+                        $long_type = 'Text';
+                        $val = '';
+                    }
+                    elsif ($type eq 's') {
+                        $long_type = 'Text';
+                        $val = $sheet->{_Book}{PkgStr}[$val];
+                    }
+                    elsif ($type eq 'n') {
+                        $long_type = 'Numeric';
+                        $val = defined($val) ? 0+$val : undef;
+                    }
+                    elsif ($type eq 'd') {
+                        $long_type = 'Date';
+                    }
+                    elsif ($type eq 'b') {
+                        $long_type = 'Text';
+                        $val = $val ? "TRUE" : "FALSE";
+                    }
+                    elsif ($type eq 'e') {
+                        $long_type = 'Text';
+                    }
+                    elsif ($type eq 'str' || $type eq 'inlineStr') {
+                        $long_type = 'Text';
+                    }
+                    else {
+                        die "unimplemented type $type"; # XXX
+                    }
+
+                    my $format_idx = $cell->att('s') || 0;
+                    my $format = $sheet->{_Book}{Format}[$format_idx];
+                    $format->{Merged} = !!grep {
+                        $row == $_->[0] && $col == $_->[1]
+                    } @merged_cells;
+
+                    # see the list of built-in formats below in _parse_styles
+                    # XXX probably should figure this out from the actual format string,
+                    # but that's not entirely trivial
+                    if (grep { $format->{FmtIdx} == $_ } 14..22, 45..47) {
+                        $long_type = 'Date';
+                    }
+
+                    my $cell = Spreadsheet::ParseExcel::Cell->new(
+                        Val      => $val,
+                        Type     => $long_type,
+                        Merged   => $format->{Merged},
+                        Format   => $format,
+                        FormatNo => $format_idx,
+                        ($cell->first_child('f')
+                            ? (Formula => $cell->first_child('f')->text)
+                            : ()),
+                    );
+                    $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
+                        $cell, $sheet->{_Book}
+                    );
+                    $sheet->{Cells}[$row][$col] = $cell;
+                }
+
+                $twig->purge;
+            },
+
+        }
+    );
+
+    $sheet_xml->parse( $sheet_file );
+
+    if ( ! $sheet->{Cells} ){
+        $sheet->{MaxRow} = $sheet->{MaxCol} = -1;
     }
 
     $sheet->{DefRowHeight} = 0+$default_row_height;
@@ -262,36 +327,31 @@ sub _parse_sheet {
         map { defined $_ ? 0+$_ : 0+$default_column_width } @column_widths
     ];
 
-    my ($selection) = $sheet_xml->find_nodes('//selection');
-    if ($selection) {
-        if (my $cell = $selection->att('activeCell')) {
-            $sheet->{Selection} = [ $self->_cell_to_row_col($cell) ];
-        }
-        elsif (my $range = $selection->att('sqref')) {
-            my ($topleft, $bottomright) = $range =~ /([^:]+):([^:]+)/;
-            $sheet->{Selection} = [
-                $self->_cell_to_row_col($topleft),
-                $self->_cell_to_row_col($bottomright),
-            ];
-        }
-    }
-    else {
-        $sheet->{Selection} = [ 0, 0 ];
-    }
 }
 
 sub _parse_shared_strings {
     my $self = shift;
     my ($strings) = @_;
 
-    return [
-        map {
-            my $node = $_;
-            # XXX this discards information about formatting within cells
-            # not sure how to represent that
-            { Text => join('', map { $_->text } $node->find_nodes('.//t')) }
-        } $strings->find_nodes('//si')
-    ];
+    my $PkgStr = [];
+
+    if ($strings) {
+        my $xml = XML::Twig->new(
+            twig_handlers => {
+                'si' => sub {
+                    my ( $twig, $si ) = @_;
+
+                    # XXX this discards information about formatting within cells
+                    # not sure how to represent that
+                    push @$PkgStr,
+                      join( '', map { $_->text } $si->find_nodes('.//t') );
+                    $twig->purge;
+                },
+            }
+        );
+        $xml->parse( $strings );
+    }
+    return $PkgStr;
 }
 
 sub _parse_themes {
@@ -573,9 +633,13 @@ sub _extract_files {
         $zip,
         $self->_rels_for($wb_name)
     );
-    my ($strings_xml) = map {
-        $self->_parse_xml($zip, $path_base . $_->att('Target'))
-    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>);
+
+    my $strings_xml = eval {
+      $zip->memberNamed( $path_base
+        .( $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>) )[0]->att('Target')
+      )->contents;
+    };
+
     my $styles_xml = $self->_parse_xml(
         $zip,
         $path_base . ($wb_rels->find_nodes(
@@ -584,7 +648,9 @@ sub _extract_files {
     );
 
     my %worksheet_xml = map {
-        $_->att('Id') => $self->_parse_xml($zip, $path_base . $_->att('Target'))
+        if ( my $sheetfile = $zip->memberNamed($path_base . $_->att('Target'))->contents ) {
+            ( $_->att('Id') => $sheetfile );
+        }
     } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/worksheet"]>);
 
     my %themes_xml = map {
