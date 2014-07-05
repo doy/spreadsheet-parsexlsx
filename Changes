@@ -1,6 +1,9 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Parse shared strings and worksheets as they are read rather than
+        reading everything into memory, to reduce memory usage
+        (merrilymeredith, #21)
 
 0.14  2014-04-03
       - fix incompatibility with newer Spreadsheet::ParseExcel (reported by
