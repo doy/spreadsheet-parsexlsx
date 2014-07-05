@@ -226,6 +226,14 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
+            'sheetPr/tabColor' => sub {
+                my ( $twig, $tab_color ) = @_;
+
+                $sheet->{TabColor} = $self->_color($sheet->{_Book}{Color}, $tab_color);
+
+                $twig->purge;
+            },
+
         }
     );
 
