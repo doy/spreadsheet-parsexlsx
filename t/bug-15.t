@@ -13,7 +13,7 @@ ok(exists $b2->get_format->{Hidden});
 ok(exists $b2->get_format->{Lock});
 ok($b2->get_format->{IgnoreProtection});
 ok(!$b2->get_format->{Hidden});
-ok(!$b2->get_format->{Lock});
+ok($b2->get_format->{Lock});
 
 my $b3 = $ws->get_cell(2, 1);
 ok(exists $b3->get_format->{Hidden});
