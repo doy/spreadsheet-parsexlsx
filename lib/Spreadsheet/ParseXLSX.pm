@@ -137,6 +137,7 @@ sub _parse_sheet {
 
     my @merged_cells;
 
+    my @column_formats;
     my @column_widths;
     my @row_heights;
 
@@ -196,8 +197,10 @@ sub _parse_sheet {
             'col' => sub {
                 my ( $twig, $col ) = @_;
 
-                $column_widths[ $_ - 1 ] = $col->att('width')
-                    for ( $col->att('min') .. $col->att('max') );
+                for my $colnum ($col->att('min')..$col->att('max')) {
+                    $column_widths[$colnum - 1] = $col->att('width');
+                    $column_formats[$colnum - 1] = $col->att('style');
+                }
 
                 $twig->purge;
             },
@@ -223,6 +226,14 @@ sub _parse_sheet {
                         $self->_cell_to_row_col($bottomright),
                     ];
                 }
+
+                $twig->purge;
+            },
+
+            'sheetPr/tabColor' => sub {
+                my ( $twig, $tab_color ) = @_;
+
+                $sheet->{TabColor} = $self->_color($sheet->{_Book}{Color}, $tab_color);
 
                 $twig->purge;
             },
@@ -327,6 +338,7 @@ sub _parse_sheet {
     $sheet->{ColWidth} = [
         map { defined $_ ? 0+$_ : 0+$default_column_width } @column_widths
     ];
+    $sheet->{ColFmtNo} = \@column_formats;
 
 }
 
