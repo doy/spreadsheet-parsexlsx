@@ -33,17 +33,18 @@ sub new {
     bless {}, shift;
 }
 
-=method parse($file)
+=method parse($file, $formatter)
 
 Parses an XLSX file. Parsing errors throw an exception. C<$file> can be either
 a filename or an open filehandle. Returns a
 L<Spreadsheet::ParseExcel::Workbook> instance containing the parsed data.
+The C<$formatter> argument is an optional formatter class as described in L<Spreadsheet::ParseExcel>.
 
 =cut
 
 sub parse {
     my $self = shift;
-    my ($file) = @_;
+    my ($file, $formatter) = @_;
 
     my $zip = Archive::Zip->new;
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
@@ -62,12 +63,12 @@ sub parse {
         die "Argument to 'new' must be a filename or open filehandle";
     }
 
-    return $self->_parse_workbook($zip, $workbook);
+    return $self->_parse_workbook($zip, $workbook, $formatter);
 }
 
 sub _parse_workbook {
     my $self = shift;
-    my ($zip, $workbook) = @_;
+    my ($zip, $workbook, $formatter) = @_;
 
     my $files = $self->_extract_files($zip);
 
@@ -81,7 +82,7 @@ sub _parse_workbook {
 
     $workbook->{Flag1904} = $properties->att('date1904') ? 1 : 0;
 
-    $workbook->{FmtClass} = Spreadsheet::ParseExcel::FmtDefault->new; # XXX
+    $workbook->{FmtClass} = $formatter || Spreadsheet::ParseExcel::FmtDefault->new;
 
     my $themes = $self->_parse_themes((values %{ $files->{themes} })[0]); # XXX
 
