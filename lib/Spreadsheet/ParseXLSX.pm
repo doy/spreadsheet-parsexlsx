@@ -513,7 +513,7 @@ sub _parse_styles {
             Font   => $font[$_->att('fontId')],
             FmtIdx => 0+$_->att('numFmtId'),
 
-            Lock => $protection
+            Lock => $protection && defined $protection->att('locked')
                 ? $protection->att('locked')
                 : 1,
             Hidden => $protection
