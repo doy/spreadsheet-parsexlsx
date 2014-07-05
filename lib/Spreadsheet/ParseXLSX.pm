@@ -634,11 +634,9 @@ sub _extract_files {
         $self->_rels_for($wb_name)
     );
 
-    my $strings_xml = eval {
-      $zip->memberNamed( $path_base
-        .( $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>) )[0]->att('Target')
-      )->contents;
-    };
+    my ($strings_xml) = map {
+        $zip->memberNamed($path_base . $_->att('Target'))->contents
+    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>);
 
     my $styles_xml = $self->_parse_xml(
         $zip,
