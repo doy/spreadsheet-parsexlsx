@@ -121,7 +121,7 @@ sub _parse_workbook {
     $workbook->{SheetCount} = scalar(@sheets);
 
     my ($node) = $files->{workbook}->find_nodes('//workbookView');
-    my $selected = $node->att('activeTab');
+    my $selected = $node ? $node->att('activeTab') : undef;
     $workbook->{SelectedSheet} = defined($selected) ? 0+$selected : 0;
 
     return $workbook;
@@ -158,8 +158,8 @@ sub _parse_sheet {
 
                 $sheet->{MinRow} = $rmin;
                 $sheet->{MinCol} = $cmin;
-                $sheet->{MaxRow} = $rmax;
-                $sheet->{MaxCol} = $cmax;
+                $sheet->{MaxRow} = $rmax ? $rmax : -1;
+                $sheet->{MaxCol} = $cmax ? $cmax : -1;
 
                 $twig->purge;
             },
@@ -255,10 +255,18 @@ sub _parse_sheet {
 
                 for my $cell ( $row_elt->children('c') ){
                     my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
+                    $sheet->{MaxRow} = $row;
+                    $sheet->{MaxCol} = $col;
                     my $type = $cell->att('t') || 'n';
-                    my $val_xml = $type eq 'inlineStr'
-                        ? $cell->first_child('is')->first_child('t')
-                        : $cell->first_child('v');
+                    my $val_xml;
+                    if ($type ne 'inlineStr') {
+                      $val_xml = $cell->first_child('v');
+                    } elsif (defined $cell->first_child('is')) {
+                      foreach my $tnode ($cell->find_nodes ('.//t')) {
+                        $val_xml = $tnode;
+                        last;
+                      }
+                    }
                     my $val = $val_xml ? $val_xml->text : undef;
 
                     my $long_type;
@@ -769,7 +777,10 @@ sub _color {
             $color = '#' . substr($color_node->att('rgb'), 2, 6);
         }
         elsif (defined $color_node->att('theme')) {
-            $color = '#' . $colors->[$color_node->att('theme')];
+            my $theme = $colors->[$color_node->att('theme')];
+            if (defined $theme) {
+              $color = '#' . $colors->[$color_node->att('theme')];
+            }
         }
 
         $color = $self->_apply_tint($color, $color_node->att('tint'))
