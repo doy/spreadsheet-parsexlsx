@@ -287,8 +287,12 @@ sub _parse_sheet {
 
                 for my $cell ( $row_elt->children('c') ){
                     my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
-                    $sheet->{MaxRow} = $row;
-                    $sheet->{MaxCol} = $col;
+                    if ($sheet->{MaxRow} < $row) {
+                      $sheet->{MaxRow} = $row;
+                    }
+                    if ($sheet->{MaxCol} < $col) {
+                      $sheet->{MaxCol} = $col;
+                    }
                     my $type = $cell->att('t') || 'n';
                     my $val_xml;
                     if ($type ne 'inlineStr') {
