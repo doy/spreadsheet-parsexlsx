@@ -164,6 +164,33 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
+            'headerFooter' => sub {
+                my ($twig, $hf) = @_;
+
+                $sheet->{header} = $hf->first_child('oddHeader')->text // '';
+                $sheet->{footer} = $hf->first_child('oddFooter')->text // '';
+
+                $twig->purge;
+            },
+
+            'pageMargins' => sub {
+                my ($twig, $margin) = @_;
+                map {
+                  $sheet->{pageMargins}->{$_} = $margin->att($_) // 0
+                } qw(left right top bottom header footer);
+
+                $twig->purge;
+            },
+
+            'pageSetup' => sub {
+                my ($twig, $setup) = @_;
+                map {
+                  $sheet->{pageSetup}->{$_} = $setup->att($_) // 0
+                } qw(scale orientation horizontalDpi verticalDpi paperSize firstPageNumber scale);
+
+                $twig->purge;
+            },
+
             'mergeCells/mergeCell' => sub {
                 my ( $twig, $merge_area ) = @_;
 
@@ -478,8 +505,8 @@ sub _parse_styles {
                 } qw(left right top bottom)
             ],
             diagonal => [
-                0, # XXX ->att('diagonalDown') and ->att('diagonalUp')
-                0, # XXX ->att('style')
+                ($border->att('diagonalDown') // 0) * 2 + ($border->att('diagonalUp') // 0),
+                 $border{ $border->first_child('diagonal')->att('style') || 'none' },
                 $self->_color(
                     $workbook->{Color},
                     $border->first_child('diagonal')->first_child('color')
@@ -607,9 +634,12 @@ sub _parse_styles {
                 : 2,
             # JustLast => $iJustL,
             # Rotate   => $iRotate,
+            Rotate => $alignment ? $alignment->att('textRotation') : 0,
 
             # Indent  => $iInd,
+            Indent => $alignment ? $alignment->att('indent') : 0,
             # Shrink  => $iShrink,
+            Shrink => $alignment ? $alignment->att('shrinkToFit') : 0,
             # Merge   => $iMerge,
             # ReadDir => $iReadDir,
 
