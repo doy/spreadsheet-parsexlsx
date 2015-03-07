@@ -24,7 +24,7 @@ is($ws1->{pageMargins}{bottom}, '0.8');
 # Page Setup
 is($ws1->{pageSetup}{scale}, '75');
 is($ws1->{pageSetup}{orientation}, 'landscape');
-is($ws1->{pageSetup}{paperSize}, '4');	                             # Code for 11*17
+is($ws1->{pageSetup}{paperSize}, '4');                               # Code for 11*17
 
 # Cell Border Formatting
 is($ws1->get_cell(0,0)->get_format()->{'BdrDiag'}[0], 1);
