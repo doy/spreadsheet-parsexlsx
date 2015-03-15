@@ -508,20 +508,25 @@ sub _parse_styles {
             $v = 0 if $v eq 'false';
             $v
         } qw(diagonalDown diagonalUp);
+        my %borderstyles = map {
+            my $e = $border->first_child($_);
+            $_ => ($e ? $e->att('style') || 'none' : 'none')
+        } qw(left right top bottom diagonal);
+        my %bordercolors = map {
+            my $e = $border->first_child($_);
+            $_ => ($e ? $e->first_child('color') : undef)
+        } qw(left right top bottom diagonal);
         # XXX specs say "begin" and "end" rather than "left" and "right",
         # but... that's not what seems to be in the file itself (sigh)
         {
             colors => [
                 map {
-                    $self->_color(
-                        $workbook->{Color},
-                        $border->first_child($_)->first_child('color')
-                    )
+                    $self->_color($workbook->{Color}, $bordercolors{$_})
                 } qw(left right top bottom)
             ],
             styles => [
                 map {
-                    $border{$border->first_child($_)->att('style') || 'none'}
+                    $border{$borderstyles{$_}}
                 } qw(left right top bottom)
             ],
             diagonal => [
@@ -529,11 +534,8 @@ sub _parse_styles {
                :  $ddiag && !$udiag ? 2
                : !$ddiag &&  $udiag ? 1
                :                      0),
-                $border{$border->first_child('diagonal')->att('style') || 'none'},
-                $self->_color(
-                    $workbook->{Color},
-                    $border->first_child('diagonal')->first_child('color')
-                ),
+                $border{$borderstyles{diagonal}},
+                $self->_color($workbook->{Color}, $bordercolors{diagonal}),
             ],
         }
     } $styles->find_nodes('//borders/border');
@@ -581,8 +583,13 @@ sub _parse_styles {
     my @font = map {
         my $vert = $_->first_child('vertAlign');
         my $under = $_->first_child('u');
+        my $heightelem = $_->first_child('sz');
+        # XXX i guess 12 is okay?
+        my $height = 0+($heightelem ? $heightelem->att('val') : 12);
+        my $nameelem = $_->first_child('name');
+        my $name = $nameelem ? $nameelem->att('val') : '';
         Spreadsheet::ParseExcel::Font->new(
-            Height         => 0+$_->first_child('sz')->att('val'),
+            Height         => $height,
             # Attr           => $iAttr,
             # XXX not sure if there's a better way to keep the indexing stuff
             # intact rather than just going straight to #xxxxxx
@@ -614,7 +621,7 @@ sub _parse_styles {
                  :                                  0)
                 : 0
             ),
-            Name           => $_->first_child('name')->att('val'),
+            Name           => $name,
 
             Bold      => $_->has_child('b') ? 1 : 0,
             Italic    => $_->has_child('i') ? 1 : 0,
