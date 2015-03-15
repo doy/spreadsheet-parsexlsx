@@ -5,7 +5,7 @@ use Test::More;
 
 use Spreadsheet::ParseXLSX;
 
-my $wb = Spreadsheet::ParseXLSX->new->parse('t/data/bug-lock.xlsx');
+my $wb = Spreadsheet::ParseXLSX->new->parse('t/data/bug-16.xlsx');
 my $ws = $wb->worksheet(0);
 
 my $b1 = $ws->get_cell(0, 0);

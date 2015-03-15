@@ -82,7 +82,7 @@ sub _parse_workbook {
                                  : (""));
     }
 
-    $workbook->{Flag1904} = $properties && $properties->att('date1904') ? 1 : 0;
+    $workbook->{Flg1904} = $properties && $properties->att('date1904') ? 1 : 0;
 
     $workbook->{FmtClass} = $formatter || Spreadsheet::ParseExcel::FmtDefault->new;
 
