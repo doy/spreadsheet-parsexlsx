@@ -287,21 +287,17 @@ sub _parse_sheet {
 
                 for my $cell ( $row_elt->children('c') ){
                     my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
-                    if ($sheet->{MaxRow} < $row) {
-                      $sheet->{MaxRow} = $row;
-                    }
-                    if ($sheet->{MaxCol} < $col) {
-                      $sheet->{MaxCol} = $col;
-                    }
+                    $sheet->{MaxRow} = $row
+                        if $sheet->{MaxRow} < $row;
+                    $sheet->{MaxCol} = $col
+                        if $sheet->{MaxCol} < $col;
                     my $type = $cell->att('t') || 'n';
                     my $val_xml;
                     if ($type ne 'inlineStr') {
-                      $val_xml = $cell->first_child('v');
-                    } elsif (defined $cell->first_child('is')) {
-                      foreach my $tnode ($cell->find_nodes ('.//t')) {
-                        $val_xml = $tnode;
-                        last;
-                      }
+                        $val_xml = $cell->first_child('v');
+                    }
+                    elsif (defined $cell->first_child('is')) {
+                        $val_xml = ($cell->find_nodes('.//t'))[0];
                     }
                     my $val = $val_xml ? $val_xml->text : undef;
 
@@ -827,7 +823,10 @@ sub _color {
         elsif (defined $color_node->att('theme')) {
             my $theme = $colors->[$color_node->att('theme')];
             if (defined $theme) {
-              $color = '#' . $colors->[$color_node->att('theme')];
+                $color = "#$theme";
+            }
+            else {
+                return;
             }
         }
 
