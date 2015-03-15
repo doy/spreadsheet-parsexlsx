@@ -493,6 +493,12 @@ sub _parse_styles {
 
     my @borders = map {
         my $border = $_;
+        my ($ddiag, $udiag) = map {
+            my $v = $border->att($_) // 0;
+            $v = 1 if $v eq 'true';
+            $v = 0 if $v eq 'false';
+            $v
+        } qw(diagonalDown diagonalUp);
         # XXX specs say "begin" and "end" rather than "left" and "right",
         # but... that's not what seems to be in the file itself (sigh)
         {
@@ -510,8 +516,11 @@ sub _parse_styles {
                 } qw(left right top bottom)
             ],
             diagonal => [
-                ($border->att('diagonalDown') // 0) * 2 + ($border->att('diagonalUp') // 0),
-                 $border{ $border->first_child('diagonal')->att('style') || 'none' },
+                ( $ddiag &&  $udiag ? 3
+               :  $ddiag && !$udiag ? 2
+               : !$ddiag &&  $udiag ? 1
+               :                      0),
+                $border{$border->first_child('diagonal')->att('style') || 'none'},
                 $self->_color(
                     $workbook->{Color},
                     $border->first_child('diagonal')->first_child('color')
