@@ -666,12 +666,9 @@ sub _parse_styles {
                 ? $valign{$alignment->att('vertical') || 'bottom'}
                 : 2,
             # JustLast => $iJustL,
-            # Rotate   => $iRotate,
             Rotate => $alignment ? $alignment->att('textRotation') : 0,
 
-            # Indent  => $iInd,
             Indent => $alignment ? $alignment->att('indent') : 0,
-            # Shrink  => $iShrink,
             Shrink => $alignment
                 ? $self->_xml_boolean($alignment->att('shrinkToFit'))
                 : 0,
