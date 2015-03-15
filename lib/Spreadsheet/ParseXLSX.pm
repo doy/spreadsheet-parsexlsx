@@ -164,6 +164,38 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
+            'headerFooter' => sub {
+                my ($twig, $hf) = @_;
+
+                my ($helem, $felem) = map {
+                    $hf->first_child($_)
+                } qw(oddHeader oddFooter);
+                $sheet->{header} = $helem->text
+                    if $helem;
+                $sheet->{footer} = $felem->text
+                    if $felem;
+
+                $twig->purge;
+            },
+
+            'pageMargins' => sub {
+                my ($twig, $margin) = @_;
+                map {
+                  $sheet->{pageMargins}->{$_} = $margin->att($_) // 0
+                } qw(left right top bottom header footer);
+
+                $twig->purge;
+            },
+
+            'pageSetup' => sub {
+                my ($twig, $setup) = @_;
+                map {
+                  $sheet->{pageSetup}->{$_} = $setup->att($_) // 0
+                } qw(scale orientation horizontalDpi verticalDpi paperSize firstPageNumber scale);
+
+                $twig->purge;
+            },
+
             'mergeCells/mergeCell' => sub {
                 my ( $twig, $merge_area ) = @_;
 
@@ -461,6 +493,12 @@ sub _parse_styles {
 
     my @borders = map {
         my $border = $_;
+        my ($ddiag, $udiag) = map {
+            my $v = $border->att($_) // 0;
+            $v = 1 if $v eq 'true';
+            $v = 0 if $v eq 'false';
+            $v
+        } qw(diagonalDown diagonalUp);
         # XXX specs say "begin" and "end" rather than "left" and "right",
         # but... that's not what seems to be in the file itself (sigh)
         {
@@ -478,8 +516,11 @@ sub _parse_styles {
                 } qw(left right top bottom)
             ],
             diagonal => [
-                0, # XXX ->att('diagonalDown') and ->att('diagonalUp')
-                0, # XXX ->att('style')
+                ( $ddiag &&  $udiag ? 3
+               :  $ddiag && !$udiag ? 2
+               : !$ddiag &&  $udiag ? 1
+               :                      0),
+                $border{$border->first_child('diagonal')->att('style') || 'none'},
                 $self->_color(
                     $workbook->{Color},
                     $border->first_child('diagonal')->first_child('color')
@@ -607,9 +648,12 @@ sub _parse_styles {
                 : 2,
             # JustLast => $iJustL,
             # Rotate   => $iRotate,
+            Rotate => $alignment ? $alignment->att('textRotation') : 0,
 
             # Indent  => $iInd,
+            Indent => $alignment ? $alignment->att('indent') : 0,
             # Shrink  => $iShrink,
+            Shrink => $alignment ? $alignment->att('shrinkToFit') : 0,
             # Merge   => $iMerge,
             # ReadDir => $iReadDir,
 
