@@ -167,8 +167,13 @@ sub _parse_sheet {
             'headerFooter' => sub {
                 my ($twig, $hf) = @_;
 
-                $sheet->{header} = $hf->first_child('oddHeader')->text // '';
-                $sheet->{footer} = $hf->first_child('oddFooter')->text // '';
+                my ($helem, $felem) = map {
+                    $hf->first_child($_)
+                } qw(oddHeader oddFooter);
+                $sheet->{header} = $helem->text
+                    if $helem;
+                $sheet->{footer} = $felem->text
+                    if $felem;
 
                 $twig->purge;
             },
