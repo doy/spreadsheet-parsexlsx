@@ -83,7 +83,8 @@ sub _parse_workbook {
                                  : (""));
     }
 
-    $workbook->{Flg1904} = $properties && $properties->att('date1904') ? 1 : 0;
+    $workbook->{Flg1904} = $self->_xml_boolean($properties->att('date1904'))
+        if $properties;
 
     $workbook->{FmtClass} = $formatter || Spreadsheet::ParseExcel::FmtDefault->new;
 
@@ -195,7 +196,7 @@ sub _parse_sheet {
                 $sheet->{Landscape} = ($setup->att('orientation') // '') ne 'landscape';
                 $sheet->{PaperSize} = $setup->att('paperSize') // 1;
                 $sheet->{PageStart} = $setup->att('firstPageNumber');
-                $sheet->{UsePage} = $setup->att('useFirstPageNumber');
+                $sheet->{UsePage} = $self->_xml_boolean($setup->att('useFirstPageNumber'));
                 $sheet->{HorizontalDPI} = $setup->att('horizontalDpi');
                 $sheet->{VerticalDPI} = $setup->att('verticalDpi');
 
@@ -508,10 +509,7 @@ sub _parse_styles {
     my @borders = map {
         my $border = $_;
         my ($ddiag, $udiag) = map {
-            my $v = $border->att($_) // 0;
-            $v = 1 if $v eq 'true';
-            $v = 0 if $v eq 'false';
-            $v
+            $self->_xml_boolean($border->att($_))
         } qw(diagonalDown diagonalUp);
         my %borderstyles = map {
             my $e = $border->first_child($_);
@@ -639,22 +637,22 @@ sub _parse_styles {
         my $alignment  = $_->first_child('alignment');
         my $protection = $_->first_child('protection');
         Spreadsheet::ParseExcel::Format->new(
-            IgnoreFont         => !$_->att('applyFont'),
-            IgnoreFill         => !$_->att('applyFill'),
-            IgnoreBorder       => !$_->att('applyBorder'),
-            IgnoreAlignment    => !$_->att('applyAlignment'),
-            IgnoreNumberFormat => !$_->att('applyNumberFormat'),
-            IgnoreProtection   => !$_->att('applyProtection'),
+            IgnoreFont         => !$self->_xml_boolean($_->att('applyFont')),
+            IgnoreFill         => !$self->_xml_boolean($_->att('applyFill')),
+            IgnoreBorder       => !$self->_xml_boolean($_->att('applyBorder')),
+            IgnoreAlignment    => !$self->_xml_boolean($_->att('applyAlignment')),
+            IgnoreNumberFormat => !$self->_xml_boolean($_->att('applyNumberFormat')),
+            IgnoreProtection   => !$self->_xml_boolean($_->att('applyProtection')),
 
             FontNo => 0+$_->att('fontId'),
             Font   => $font[$_->att('fontId')],
             FmtIdx => 0+$_->att('numFmtId'),
 
             Lock => $protection && defined $protection->att('locked')
-                ? $protection->att('locked')
+                ? $self->_xml_boolean($protection->att('locked'))
                 : 1,
             Hidden => $protection
-                ? $protection->att('hidden')
+                ? $self->_xml_boolean($protection->att('hidden'))
                 : 0,
             # Style    => $iStyle,
             # Key123   => $i123,
@@ -662,7 +660,7 @@ sub _parse_styles {
                 ? $halign{$alignment->att('horizontal') || 'general'}
                 : 0,
             Wrap => $alignment
-                ? $alignment->att('wrapText')
+                ? $self->_xml_boolean($alignment->att('wrapText'))
                 : 0,
             AlignV => $alignment
                 ? $valign{$alignment->att('vertical') || 'bottom'}
@@ -674,7 +672,9 @@ sub _parse_styles {
             # Indent  => $iInd,
             Indent => $alignment ? $alignment->att('indent') : 0,
             # Shrink  => $iShrink,
-            Shrink => $alignment ? $alignment->att('shrinkToFit') : 0,
+            Shrink => $alignment
+                ? $self->_xml_boolean($alignment->att('shrinkToFit'))
+                : 0,
             # Merge   => $iMerge,
             # ReadDir => $iReadDir,
 
@@ -813,12 +813,18 @@ sub _cell_to_row_col {
     return ($nrow, $ncol);
 }
 
+sub _xml_boolean {
+    my $self = shift;
+    my ($bool) = @_;
+    return defined($bool) && ($bool eq 'true' || $bool eq '1');
+}
+
 sub _color {
     my $self = shift;
     my ($colors, $color_node, $fill) = @_;
 
     my $color;
-    if ($color_node && !$color_node->att('auto')) {
+    if ($color_node && !$self->_xml_boolean($color_node->att('auto'))) {
         if (defined $color_node->att('indexed')) {
             # see https://rt.cpan.org/Public/Bug/Display.html?id=93065
             if ($fill && $color_node->att('indexed') == 64) {
