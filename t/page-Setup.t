@@ -10,21 +10,21 @@ my $wb = Spreadsheet::ParseXLSX->new->parse('t/data/page-Setup.xlsx');
 my $ws1 = $wb->worksheet(0);
 
 # Header/Footer Text
-is($ws1->{header}, '&CHeader');
-is($ws1->{footer}, '&CFooter');
+is($ws1->get_header, '&CHeader');
+is($ws1->get_footer, '&CFooter');
 
 # Margins
-is($ws1->{pageMargins}{header}, '0.3');
-is($ws1->{pageMargins}{footer}, '0.4');
-is($ws1->{pageMargins}{left},   '0.5');
-is($ws1->{pageMargins}{right},  '0.6');
-is($ws1->{pageMargins}{top},    '0.7');
-is($ws1->{pageMargins}{bottom}, '0.8');
+is($ws1->get_margin_header, '0.3');
+is($ws1->get_margin_footer, '0.4');
+is($ws1->get_margin_left,   '0.5');
+is($ws1->get_margin_right,  '0.6');
+is($ws1->get_margin_top,    '0.7');
+is($ws1->get_margin_bottom, '0.8');
 
 # Page Setup
-is($ws1->{pageSetup}{scale}, '75');
-is($ws1->{pageSetup}{orientation}, 'landscape');
-is($ws1->{pageSetup}{paperSize}, '4');                               # Code for 11*17
+is($ws1->get_print_scale, '75');
+ok(!$ws1->is_portrait);
+is($ws1->get_paper, '4');                               # Code for 11*17
 
 # Cell Border Formatting
 is($ws1->get_cell(0,0)->get_format()->{'BdrDiag'}[0], 1);

@@ -171,9 +171,9 @@ sub _parse_sheet {
                 my ($helem, $felem) = map {
                     $hf->first_child($_)
                 } qw(oddHeader oddFooter);
-                $sheet->{header} = $helem->text
+                $sheet->{Header} = $helem->text
                     if $helem;
-                $sheet->{footer} = $felem->text
+                $sheet->{Footer} = $felem->text
                     if $felem;
 
                 $twig->purge;
@@ -182,7 +182,8 @@ sub _parse_sheet {
             'pageMargins' => sub {
                 my ($twig, $margin) = @_;
                 map {
-                  $sheet->{pageMargins}->{$_} = $margin->att($_) // 0
+                    my $key = "\u${_}Margin";
+                    $sheet->{$key} = $margin->att($_) // 0
                 } qw(left right top bottom header footer);
 
                 $twig->purge;
@@ -190,9 +191,13 @@ sub _parse_sheet {
 
             'pageSetup' => sub {
                 my ($twig, $setup) = @_;
-                map {
-                  $sheet->{pageSetup}->{$_} = $setup->att($_) // 0
-                } qw(scale orientation horizontalDpi verticalDpi paperSize firstPageNumber scale);
+                $sheet->{Scale} = $setup->att('scale') // 100;
+                $sheet->{Landscape} = ($setup->att('orientation') // '') ne 'landscape';
+                $sheet->{PaperSize} = $setup->att('paperSize') // 1;
+                $sheet->{PageStart} = $setup->att('firstPageNumber');
+                $sheet->{UsePage} = $setup->att('useFirstPageNumber');
+                $sheet->{HorizontalDPI} = $setup->att('horizontalDpi');
+                $sheet->{VerticalDPI} = $setup->att('verticalDpi');
 
                 $twig->purge;
             },
