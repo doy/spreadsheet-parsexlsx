@@ -1,6 +1,14 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Fix using_1904_date (f20, #31)
+      - Add support for get_header, get_footer, get_margin_*, get_print_scale,
+        get_paper, is_portrait, and get_start_page, and also fill in the
+        BdrDiag, Rotate, Indent, and Shrink format properties (Dave Clarke,
+        #35)
+      - Fix JasperSoft-created files (rdboisvert, #27)
+      - bump required perl version to 5.010 (zhouzhen1, #33)
+      - Fix Google Drive-created files (reported by ovidiubarbu, #29)
 
 0.16  2014-07-05
       - Cells should default to locked (f20, #25)
