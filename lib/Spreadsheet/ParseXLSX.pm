@@ -970,7 +970,7 @@ sub open {
         }
         $infoFH->close();
     };
-    unlink $infoFile, $packageFile; 
+    unlink $infoFile, $packageFile;
     die $@ if $@;
 
     return $xlsx;
@@ -1133,7 +1133,7 @@ sub agileDecryption {
 sub new {
     my $class = shift;
     my $self = shift;
-  
+
     $self->{keyLength} = $self->{keyBits} / 8;
 
     if ($self->{hashAlgorithm} eq 'SHA512') {
@@ -1250,10 +1250,10 @@ sub verifyPassword {
 
     my ($encryptedVerifier, $encryptedVerifierHash) = @_;
 
-		my $encryptedVerifierHash0 = $self->{hashProc}->($self->decrypt($encryptedVerifier, "\xfe\xa7\xd2\x76\x3b\x4b\x9e\x79"));
-		$encryptedVerifierHash = $self->decrypt($encryptedVerifierHash, "\xd7\xaa\x0f\x6d\x30\x61\x34\x4e");
+    my $encryptedVerifierHash0 = $self->{hashProc}->($self->decrypt($encryptedVerifier, "\xfe\xa7\xd2\x76\x3b\x4b\x9e\x79"));
+    $encryptedVerifierHash = $self->decrypt($encryptedVerifierHash, "\xd7\xaa\x0f\x6d\x30\x61\x34\x4e");
 
-		die "Wrong password: $self" unless ($encryptedVerifierHash0 eq $encryptedVerifierHash);
+    die "Wrong password: $self" unless ($encryptedVerifierHash0 eq $encryptedVerifierHash);
 }
 
 package Spreadsheet::ParseXLSX::decryptor::Standard;
@@ -1340,7 +1340,7 @@ sub verifyPassword {
 
     my $verifierHash0 = $self->{hashProc}->($verifier);
 
-		die "Wrong password: $self" unless ($verifierHash0 eq substr($verifierHash, 0, length($verifierHash0)));
+    die "Wrong password: $self" unless ($verifierHash0 eq substr($verifierHash, 0, length($verifierHash0)));
 }
 
 =head1 INCOMPATIBILITIES
