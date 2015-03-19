@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Test::More;
 
-use lib::Spreadsheet::ParseXLSX;
+use Spreadsheet::ParseXLSX;
 
 my $parser = Spreadsheet::ParseXLSX->new();
 my $workbook = $parser->parse("t/data/encryption-agile-123q.xlsx", {password => '123q'});
