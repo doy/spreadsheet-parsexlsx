@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.17  2015-03-25
       - Fix using_1904_date (f20, #31)
       - Add support for get_header, get_footer, get_margin_*, get_print_scale,
         get_paper, is_portrait, and get_start_page, and also fill in the
