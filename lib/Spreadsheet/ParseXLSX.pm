@@ -932,8 +932,6 @@ although this may have other consequences such as memory leaks.
 
 =item Intra-cell formatting is discarded
 
-=item Diagonal border styles are ignored
-
 =back
 
 In addition, there are still a few areas which are not yet implemented (the
