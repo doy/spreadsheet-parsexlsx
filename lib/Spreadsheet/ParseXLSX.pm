@@ -1,7 +1,7 @@
 package Spreadsheet::ParseXLSX;
 use strict;
 use warnings;
-use 5.010;
+use 5.008;
 # ABSTRACT: parse XLSX files
 
 use Archive::Zip;
@@ -184,7 +184,8 @@ sub _parse_sheet {
                 my ($twig, $margin) = @_;
                 map {
                     my $key = "\u${_}Margin";
-                    $sheet->{$key} = $margin->att($_) // 0
+                    $sheet->{$key} = defined $margin->att($_)
+                                    ? $margin->att($_) : 0
                 } qw(left right top bottom header footer);
 
                 $twig->purge;
@@ -192,9 +193,13 @@ sub _parse_sheet {
 
             'pageSetup' => sub {
                 my ($twig, $setup) = @_;
-                $sheet->{Scale} = $setup->att('scale') // 100;
-                $sheet->{Landscape} = ($setup->att('orientation') // '') ne 'landscape';
-                $sheet->{PaperSize} = $setup->att('paperSize') // 1;
+                $sheet->{Scale} = defined $setup->att('scale')
+                                ? $setup->att('scale')
+                                : 100;
+                $sheet->{Landscape} = ($setup->att('orientation') || '') ne 'landscape';
+                $sheet->{PaperSize} = defined $setup->att('paperSize')
+                                    ? $setup->att('paperSize')
+                                    : 1;
                 $sheet->{PageStart} = $setup->att('firstPageNumber');
                 $sheet->{UsePage} = $self->_xml_boolean($setup->att('useFirstPageNumber'));
                 $sheet->{HorizontalDPI} = $setup->att('horizontalDpi');
@@ -229,8 +234,10 @@ sub _parse_sheet {
             'sheetFormatPr' => sub {
                 my ( $twig, $format ) = @_;
 
-                $default_row_height   //= $format->att('defaultRowHeight');
-                $default_column_width //= $format->att('baseColWidth');
+                $default_row_height   = $format->att('defaultRowHeight')
+                  unless defined $default_row_height;
+                $default_column_width = $format->att('baseColWidth')
+                  unless defined $default_column_width;
 
                 $twig->purge;
             },
