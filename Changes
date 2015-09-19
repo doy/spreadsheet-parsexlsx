@@ -1,6 +1,9 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Fix 5.8 support (rjbs, #39)
+      - Fix parsing of files which have empty worksheets (for instance,
+        worksheets that are only charts) (Stuart Watt, #43)
 
 0.17  2015-03-25
       - Fix using_1904_date (f20, #31)
