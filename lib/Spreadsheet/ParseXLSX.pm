@@ -110,13 +110,17 @@ sub _parse_workbook {
 
     my @sheets = map {
         my $idx = $_->att('r:id');
-        my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
-            Name     => $_->att('name'),
-            _Book    => $workbook,
-            _SheetNo => $idx,
-        );
-        $self->_parse_sheet($sheet, $files->{sheets}{$idx});
-        $sheet
+        if ($files->{sheets}{$idx}) {
+          my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
+              Name     => $_->att('name'),
+              _Book    => $workbook,
+              _SheetNo => $idx,
+          );
+          $self->_parse_sheet($sheet, $files->{sheets}{$idx});
+          ($sheet)
+        } else {
+          ()
+        }
     } $files->{workbook}->find_nodes('//sheets/sheet');
 
     $workbook->{Worksheet}  = \@sheets;
