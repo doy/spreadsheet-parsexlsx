@@ -20,7 +20,10 @@ sub open {
 
     $password = $password || 'VelvetSweatshop';
 
-    my ($infoFH, $packageFH) = _getCompoundData($filename, ['EncryptionInfo', 'EncryptedPackage']);
+    my ($infoFH, $packageFH) = $class->_getCompoundData(
+        $filename,
+        ['EncryptionInfo', 'EncryptedPackage']
+    );
 
     my $buffer;
     $infoFH->read($buffer, 8);
@@ -28,17 +31,17 @@ sub open {
 
     my $xlsx;
     if ($majorVers == 4 && $minorVers == 4) {
-        $xlsx = agileDecryption($infoFH, $packageFH, $password);
+        $xlsx = $class->_agileDecryption($infoFH, $packageFH, $password);
     } else {
-        $xlsx = standardDecryption($infoFH, $packageFH, $password);
+        $xlsx = $class->_standardDecryption($infoFH, $packageFH, $password);
     }
 
     return $xlsx;
 }
 
 sub _getCompoundData {
-    my $filename = shift;
-    my $names = shift;
+    my $class = shift;
+    my ($filename, $names) = @_;
 
     my @files;
 
@@ -60,7 +63,8 @@ sub _getCompoundData {
     return @files;
 }
 
-sub standardDecryption {
+sub _standardDecryption {
+    my $class = shift;
     my ($infoFH, $packageFH, $password) = @_;
 
     my $buffer;
@@ -125,7 +129,8 @@ sub standardDecryption {
     return $fh;
 }
 
-sub agileDecryption {
+sub _agileDecryption {
+    my $class = shift;
     my ($infoFH, $packageFH, $password) = @_;
 
     my $xml = XML::Twig->new;
@@ -180,8 +185,9 @@ sub agileDecryption {
 
 sub new {
     my $class = shift;
-    my $self = shift;
+    my ($args) = @_;
 
+    my $self = { %$args };
     $self->{keyLength} = $self->{keyBits} / 8;
 
     if ($self->{hashAlgorithm} eq 'SHA512') {

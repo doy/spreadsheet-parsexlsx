@@ -4,12 +4,6 @@ use warnings;
 
 use base 'Spreadsheet::ParseXLSX::Decryptor';
 
-sub new {
-    my $class = shift;
-    my $self = Spreadsheet::ParseXLSX::Decryptor->new(@_);
-    bless $self, $class;
-}
-
 sub decrypt {
     my $self = shift;
     my ($encryptedValue) = @_;
@@ -73,7 +67,6 @@ sub _generateDecryptionKey {
 
 sub verifyPassword {
     my $self = shift;
-
     my ($encryptedVerifier, $encryptedVerifierHash) = @_;
 
     my $verifier = $self->decrypt($encryptedVerifier);
