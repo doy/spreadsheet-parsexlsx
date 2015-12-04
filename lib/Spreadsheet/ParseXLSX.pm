@@ -33,24 +33,27 @@ This module is an adaptor for L<Spreadsheet::ParseExcel> that reads XLSX files.
 
 =cut
 
-=method new
+=method new(%opts)
 
-Returns a new parser instance. Takes no parameters.
+Returns a new parser instance. Takes a hash of parameters:
+
+=over 4
+
+=item Password
+
+Password to use for decrypting encrypted files.
+
+=back
 
 =cut
 
 sub new {
-    my $self = bless {}, shift;
-    my ($param) = @_;
+    my $class = shift;
+    my (%args) = @_;
 
-    if (ref($param) eq 'HASH') {
-        if (exists($param->{password})) {
-            $self->{password} = $param->{password};
-        }
-        if (exists($param->{formatter})) {
-            $self->{formatter} = $param->{formatter};
-        }
-    }
+    my $self = bless {}, $class;
+    $self->{Password} = $args{Password} if defined $args{Password};
+
     return $self;
 }
 
@@ -65,27 +68,12 @@ The C<$formatter> argument is an optional formatter class as described in L<Spre
 
 sub parse {
     my $self = shift;
-    my ($file, $param1, $param2) = @_;
-
-    my $formatter;
-    my $password;
-
-    my $signature = '';
-    my $tempfile;
-
-    if (ref($param1) eq 'HASH') {
-        $formatter = $param1->{formatter};
-        $password = $param1->{password};
-    } else {
-        $formatter = $param1;
-        $password = $param2;
-    }
-
-    $formatter = $formatter || $self->{formatter};
-    $password = $password || $self->{password};
+    my ($file, $formatter) = @_;
 
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
 
+    my $signature = '';
+    my $tempfile;
     if (openhandle($file)) {
         if (ref($file) eq 'GLOB') {
             read($file, $signature, 2);
@@ -106,7 +94,7 @@ sub parse {
     }
 
     if ($signature eq "\xd0\xcf") {
-        $tempfile = $file = Spreadsheet::ParseXLSX::decryptor->open($file, $password);
+        $tempfile = $file = Spreadsheet::ParseXLSX::decryptor->open($file, $self->{Password});
     }
 
     eval {

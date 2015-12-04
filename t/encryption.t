@@ -5,8 +5,8 @@ use Test::More;
 
 use Spreadsheet::ParseXLSX;
 
-my $parser = Spreadsheet::ParseXLSX->new();
-my $workbook = $parser->parse("t/data/encryption-agile-123q.xlsx", {password => '123q'});
+my $parser = Spreadsheet::ParseXLSX->new(Password => '123q');
+my $workbook = $parser->parse("t/data/encryption-agile-123q.xlsx");
 
 my $worksheet;
 my $cell;
@@ -19,6 +19,7 @@ ok(defined($cell) && $cell->value() eq 'abcdefgABCDEFG');
 
 
 open FH, "t/data/encryption-standard-default-password.xlsx";
+$parser = Spreadsheet::ParseXLSX->new(Password => '');
 $workbook = $parser->parse(\*FH);
 
 ok(defined($workbook));
