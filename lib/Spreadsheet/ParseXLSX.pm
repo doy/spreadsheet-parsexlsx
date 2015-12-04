@@ -65,29 +65,12 @@ sub parse {
 
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
 
-    my $signature = '';
     my $tempfile;
-    if (openhandle($file)) {
-        if (ref($file) eq 'GLOB') {
-            read($file, $signature, 2);
-            seek($file, -2, IO::File::SEEK_CUR);
-        } else {
-            $file->read($signature, 2);
-            $file->seek(-2, IO::File::SEEK_CUR);
-        }
-        $workbook->{File} = undef;
-    } elsif (!ref($file)) {
-        my $fh = IO::File->new();
-        if ($fh->open("<$file")) {
-            $workbook->{File} = $file;
-            $fh->read($signature, 2);
-            $fh->seek(-2, IO::File::SEEK_CUR);
-            $file = $fh;
-        }
-    }
-
-    if ($signature eq "\xd0\xcf") {
-        $tempfile = $file = Spreadsheet::ParseXLSX::Decryptor->open($file, $self->{Password});
+    if ($self->_check_signature($file)) {
+        $tempfile = $file = Spreadsheet::ParseXLSX::Decryptor->open(
+            $file,
+            $self->{Password}
+        );
     }
 
     eval {
@@ -96,6 +79,7 @@ sub parse {
             bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
             $zip->readFromFileHandle($file) == Archive::Zip::AZ_OK
                 or die "Can't open filehandle as a zip file";
+            $workbook->{File} = undef;
         }
         elsif (!ref($file)) {
             $zip->read($file) == Archive::Zip::AZ_OK
@@ -114,6 +98,25 @@ sub parse {
     die $@ if $@;
 
     return $workbook;
+}
+
+sub _check_signature {
+    my $self = shift;
+    my ($file) = @_;
+
+    my $signature = '';
+    if (openhandle($file)) {
+        bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
+        $file->read($signature, 2);
+        $file->seek(-2, IO::File::SEEK_CUR);
+    }
+    elsif (!ref($file)) {
+        my $fh = IO::File->new($file, 'r');
+        $fh->read($signature, 2);
+        $fh->close;
+    }
+
+    return $signature eq "\xd0\xcf";
 }
 
 sub _parse_workbook {
