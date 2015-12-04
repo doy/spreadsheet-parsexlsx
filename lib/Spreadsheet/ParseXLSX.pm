@@ -63,41 +63,36 @@ sub parse {
     my $self = shift;
     my ($file, $formatter) = @_;
 
+    my $zip = Archive::Zip->new;
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
 
-    my $tempfile;
     if ($self->_check_signature($file)) {
-        $tempfile = $file = Spreadsheet::ParseXLSX::Decryptor->open(
+        $file = Spreadsheet::ParseXLSX::Decryptor->open(
             $file,
             $self->{Password}
         );
     }
 
-    eval {
-        my $zip = Archive::Zip->new;
-        if (openhandle($file)) {
-            bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
-            $zip->readFromFileHandle($file) == Archive::Zip::AZ_OK
-                or die "Can't open filehandle as a zip file";
-            $workbook->{File} = undef;
-        }
-        elsif (!ref($file)) {
-            $zip->read($file) == Archive::Zip::AZ_OK
-                or die "Can't open file '$file' as a zip file";
-            $workbook->{File} = $file;
-        }
-        else {
-            die "Argument to 'new' must be a filename or open filehandle";
-        }
+    if (openhandle($file)) {
+        bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
+        my $fh = ref($file) eq 'File::Temp'
+            ? IO::File->new("<&=" . fileno($file))
+            : $file;
+        $zip->readFromFileHandle($fh) == Archive::Zip::AZ_OK
+            or die "Can't open filehandle as a zip file";
+        $workbook->{File} = undef;
+        $workbook->{__tempfile} = $file;
+    }
+    elsif (!ref($file)) {
+        $zip->read($file) == Archive::Zip::AZ_OK
+            or die "Can't open file '$file' as a zip file";
+        $workbook->{File} = $file;
+    }
+    else {
+        die "Argument to 'new' must be a filename or open filehandle";
+    }
 
-        $self->_parse_workbook($zip, $workbook, $formatter);
-    };
-    if ($tempfile) {
-        unlink $tempfile;
-    };
-    die $@ if $@;
-
-    return $workbook;
+    return $self->_parse_workbook($zip, $workbook, $formatter);
 }
 
 sub _check_signature {

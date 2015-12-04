@@ -6,7 +6,7 @@ use Crypt::Mode::CBC;
 use Crypt::Mode::ECB;
 use Digest::SHA ();
 use Encode ();
-use File::Temp 'tempfile';
+use File::Temp ();
 use MIME::Base64 ();
 use OLE::Storage_Lite;
 
@@ -20,28 +20,18 @@ sub open {
 
     $password = $password || 'VelvetSweatshop';
 
-    my ($infoFile, $packageFile) = _getCompoundData($filename, ['EncryptionInfo', 'EncryptedPackage']);
+    my ($infoFH, $packageFH) = _getCompoundData($filename, ['EncryptionInfo', 'EncryptedPackage']);
+
+    my $buffer;
+    $infoFH->read($buffer, 8);
+    my ($majorVers, $minorVers) = unpack('SS', $buffer);
 
     my $xlsx;
-
-    eval {
-        my $infoFH = IO::File->new();
-        $infoFH->open($infoFile);
-        $infoFH->binmode();
-
-        my $buffer;
-        $infoFH->read($buffer, 8);
-        my ($majorVers, $minorVers) = unpack('SS', $buffer);
-
-        if ($majorVers == 4 && $minorVers == 4) {
-            $xlsx = agileDecryption($infoFH, $packageFile, $password);
-        } else {
-            $xlsx = standardDecryption($infoFH, $packageFile, $password);
-        }
-        $infoFH->close();
-    };
-    unlink $infoFile, $packageFile;
-    die $@ if $@;
+    if ($majorVers == 4 && $minorVers == 4) {
+        $xlsx = agileDecryption($infoFH, $packageFH, $password);
+    } else {
+        $xlsx = standardDecryption($infoFH, $packageFH, $password);
+    }
 
     return $xlsx;
 }
@@ -59,11 +49,11 @@ sub _getCompoundData {
         if ($#data < 0) {
             push @files, undef;
         } else {
-            my ($fh, $filename) = File::Temp::tempfile();
-            my $out = IO::Handle->new_from_fd($fh, 'w') || die "TempFile error!";
-            $out->write($data[0]->{Data});
-            $out->close();
-            push @files, $filename;
+            my $fh = File::Temp->new;
+            binmode($fh);
+            $fh->write($data[0]->{Data});
+            $fh->seek(0, 0);
+            push @files, $fh;
         }
     }
 
@@ -71,7 +61,7 @@ sub _getCompoundData {
 }
 
 sub standardDecryption {
-    my ($infoFH, $packageFile, $password) = @_;
+    my ($infoFH, $packageFH, $password) = @_;
 
     my $buffer;
     my $n = $infoFH->read($buffer, 24);
@@ -121,28 +111,22 @@ sub standardDecryption {
 
     $decryptor->verifyPassword($encryptedVerifier, $encryptedVerifierHash);
 
-    my $in = new IO::File;
-    $in->open("<$packageFile") || die 'File/handle opening error';
-    $in->binmode();
-
-    my ($fh, $filename) = File::Temp::tempfile();
+    my $fh = File::Temp->new;
     binmode($fh);
-    my $out = IO::Handle->new_from_fd($fh, 'w') || die "TempFile error!";
 
     my $inbuf;
-    $in->read($inbuf, 8);
+    $packageFH->read($inbuf, 8);
     my $fileSize = unpack('L', $inbuf);
 
-    $decryptor->decryptFile($in, $out, 1024, $fileSize);
+    $decryptor->decryptFile($packageFH, $fh, 1024, $fileSize);
 
-    $in->close();
-    $out->close();
+    $fh->seek(0, 0);
 
-    return $filename;
+    return $fh;
 }
 
 sub agileDecryption {
-    my ($infoFH, $packageFile, $password) = @_;
+    my ($infoFH, $packageFH, $password) = @_;
 
     my $xml = XML::Twig->new;
     $xml->parse($infoFH);
@@ -180,24 +164,18 @@ sub agileDecryption {
                   blockSize       => 0 + $info->att('blockSize')
               });
 
-    my $in = new IO::File;
-    $in->open("<$packageFile") || die 'File/handle opening error';
-    $in->binmode();
-
-    my ($fh, $filename) = File::Temp::tempfile();
+    my $fh = File::Temp->new;
     binmode($fh);
-    my $out = IO::Handle->new_from_fd($fh, 'w') || die "TempFile error!";
 
     my $inbuf;
-    $in->read($inbuf, 8);
+    $packageFH->read($inbuf, 8);
     my $fileSize = unpack('L', $inbuf);
 
-    $fileDecryptor->decryptFile($in, $out, 4096, $key, $fileSize);
+    $fileDecryptor->decryptFile($packageFH, $fh, 4096, $key, $fileSize);
 
-    $in->close();
-    $out->close();
+    $fh->seek(0, 0);
 
-    return $filename;
+    return $fh;
 }
 
 sub new {
