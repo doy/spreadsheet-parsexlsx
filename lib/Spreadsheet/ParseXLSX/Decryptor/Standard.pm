@@ -77,4 +77,14 @@ sub verifyPassword {
     die "Wrong password: $self" unless ($verifierHash0 eq substr($verifierHash, 0, length($verifierHash0)));
 }
 
+=begin Pod::Coverage
+
+  decrypt
+  decryptFile
+  verifyPassword
+
+=end Pod::Coverage
+
+=cut
+
 1;

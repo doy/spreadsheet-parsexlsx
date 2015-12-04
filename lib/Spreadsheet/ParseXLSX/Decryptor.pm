@@ -203,4 +203,13 @@ sub new {
     return bless $self, $class;
 }
 
+=begin Pod::Coverage
+
+  new
+  open
+
+=end Pod::Coverage
+
+=cut
+
 1;

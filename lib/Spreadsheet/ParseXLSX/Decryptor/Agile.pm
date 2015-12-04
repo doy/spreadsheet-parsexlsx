@@ -97,4 +97,14 @@ sub verifyPassword {
     die "Wrong password: $self" unless ($encryptedVerifierHash0 eq $encryptedVerifierHash);
 }
 
+=begin Pod::Coverage
+
+  decrypt
+  decryptFile
+  verifyPassword
+
+=end Pod::Coverage
+
+=cut
+
 1;
