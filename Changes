@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.19  2015-12-04
       - Support encrypted xlsx files (mazurin, #37)
       - Support absolute internal pathnames (zhouzhen1, #46)
       - Support hidden rows, columns, and sheets (ssimms, #47)
