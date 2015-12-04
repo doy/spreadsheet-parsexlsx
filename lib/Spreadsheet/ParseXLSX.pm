@@ -10,6 +10,15 @@ use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel 0.61;
 use XML::Twig;
 
+use Crypt::Mode::CBC;
+use Crypt::Mode::ECB;
+use Digest::SHA ();
+
+use OLE::Storage_Lite;
+use MIME::Base64 ();
+use Encode ();
+use File::Temp 'tempfile';
+
 =head1 SYNOPSIS
 
   use Spreadsheet::ParseXLSX;
@@ -31,7 +40,18 @@ Returns a new parser instance. Takes no parameters.
 =cut
 
 sub new {
-    bless {}, shift;
+    my $self = bless {}, shift;
+    my ($param) = @_;
+
+    if (ref($param) eq 'HASH') {
+        if (exists($param->{password})) {
+            $self->{password} = $param->{password};
+        }
+        if (exists($param->{formatter})) {
+            $self->{formatter} = $param->{formatter};
+        }
+    }
+    return $self;
 }
 
 =method parse($file, $formatter)
@@ -45,26 +65,74 @@ The C<$formatter> argument is an optional formatter class as described in L<Spre
 
 sub parse {
     my $self = shift;
-    my ($file, $formatter) = @_;
+    my ($file, $param1, $param2) = @_;
 
-    my $zip = Archive::Zip->new;
+    my $formatter;
+    my $password;
+
+    my $signature = '';
+    my $tempfile;
+
+    if (ref($param1) eq 'HASH') {
+        $formatter = $param1->{formatter};
+        $password = $param1->{password};
+    } else {
+        $formatter = $param1;
+        $password = $param2;
+    }
+
+    $formatter = $formatter || $self->{formatter};
+    $password = $password || $self->{password};
+
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
+
     if (openhandle($file)) {
-        bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
-        $zip->readFromFileHandle($file) == Archive::Zip::AZ_OK
-            or die "Can't open filehandle as a zip file";
+        if (ref($file) eq 'GLOB') {
+            read($file, $signature, 2);
+            seek($file, -2, IO::File::SEEK_CUR);
+        } else {
+            $file->read($signature, 2);
+            $file->seek(-2, IO::File::SEEK_CUR);
+        }
         $workbook->{File} = undef;
-    }
-    elsif (!ref($file)) {
-        $zip->read($file) == Archive::Zip::AZ_OK
-            or die "Can't open file '$file' as a zip file";
-        $workbook->{File} = $file;
-    }
-    else {
-        die "Argument to 'new' must be a filename or open filehandle";
+    } elsif (!ref($file)) {
+        my $fh = IO::File->new();
+        if ($fh->open("<$file")) {
+            $workbook->{File} = $file;
+            $fh->read($signature, 2);
+            $fh->seek(-2, IO::File::SEEK_CUR);
+            $file = $fh;
+        }
     }
 
-    return $self->_parse_workbook($zip, $workbook, $formatter);
+    if ($signature eq "\xd0\xcf") {
+        $tempfile = $file = Spreadsheet::ParseXLSX::decryptor->open($file, $password);
+    }
+
+    eval {
+        my $zip = Archive::Zip->new;
+        if (openhandle($file)) {
+            bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
+            $zip->readFromFileHandle($file) == Archive::Zip::AZ_OK
+                or die "Can't open filehandle as a zip file";
+        }
+        elsif (!ref($file)) {
+            $zip->read($file) == Archive::Zip::AZ_OK
+                or die "Can't open file '$file' as a zip file";
+            $workbook->{File} = $file;
+        }
+        else {
+            die "Argument to 'new' must be a filename or open filehandle";
+        }
+
+        $self->_parse_workbook($zip, $workbook, $formatter);
+    };
+    if ($tempfile) {
+        unlink $tempfile;
+    };
+    die $@ if $@;
+
+    return $workbook;
 }
 
 sub _parse_workbook {
@@ -895,6 +963,411 @@ sub _apply_tint {
     }
 
     return scalar hls2rgb($h, $l, $s);
+}
+
+package Spreadsheet::ParseXLSX::decryptor;
+
+use strict;
+use warnings;
+
+sub open {
+    my $class = shift;
+
+    my ($filename, $password) = @_;
+
+    $password = $password || 'VelvetSweatshop';
+
+    my ($infoFile, $packageFile) = _getCompoundData($filename, ['EncryptionInfo', 'EncryptedPackage']);
+
+    my $xlsx;
+
+    eval {
+        my $infoFH = IO::File->new();
+        $infoFH->open($infoFile);
+        $infoFH->binmode();
+
+        my $buffer;
+        $infoFH->read($buffer, 8);
+        my ($majorVers, $minorVers) = unpack('SS', $buffer);
+
+        if ($majorVers == 4 && $minorVers == 4) {
+            $xlsx = agileDecryption($infoFH, $packageFile, $password);
+        } else {
+            $xlsx = standardDecryption($infoFH, $packageFile, $password);
+        }
+        $infoFH->close();
+    };
+    unlink $infoFile, $packageFile;
+    die $@ if $@;
+
+    return $xlsx;
+}
+
+sub _getCompoundData {
+    my $filename = shift;
+    my $names = shift;
+
+    my @files;
+
+    my $storage = OLE::Storage_Lite->new($filename);
+
+    foreach my $name (@{$names}) {
+        my @data = $storage->getPpsSearch([OLE::Storage_Lite::Asc2Ucs($name)], 1, 1);
+        if ($#data < 0) {
+            push @files, undef;
+        } else {
+            my ($fh, $filename) = File::Temp::tempfile();
+            my $out = IO::Handle->new_from_fd($fh, 'w') || die "TempFile error!";
+            $out->write($data[0]->{Data});
+            $out->close();
+            push @files, $filename;
+        }
+    }
+
+    return @files;
+}
+
+sub standardDecryption {
+    my ($infoFH, $packageFile, $password) = @_;
+
+    my $buffer;
+    my $n = $infoFH->read($buffer, 24);
+
+    my ($encryptionHeaderSize, undef, undef, $algID, $algIDHash, $keyBits) = unpack('LLLLLL', $buffer);
+
+    $infoFH->seek($encryptionHeaderSize - 0x14, IO::File::SEEK_CUR);
+
+    $infoFH->read($buffer, 4);
+
+    my $saltSize = unpack('L', $buffer);
+
+    my ($salt, $encryptedVerifier, $verifierHashSize, $encryptedVerifierHash);
+
+    $infoFH->read($salt, 16);
+    $infoFH->read($encryptedVerifier, 16);
+
+    $infoFH->read($buffer, 4);
+    $verifierHashSize = unpack('L', $buffer);
+
+    $infoFH->read($encryptedVerifierHash, 32);
+    $infoFH->close();
+
+    my ($cipherAlgorithm, $hashAlgorithm);
+
+    if ($algID == 0x0000660E || $algID == 0x0000660F || $algID == 0x0000660E) {
+        $cipherAlgorithm = 'AES';
+    } else {
+        die sprintf('Unsupported encryption algorithm: 0x%.8x', $algID);
+    }
+
+    if ($algIDHash == 0x00008004) {
+        $hashAlgorithm = 'SHA-1';
+    } else {
+        die sprintf('Unsupported hash algorithm: 0x%.8x', $algIDHash);
+    }
+
+    my $decryptor = Spreadsheet::ParseXLSX::decryptor::Standard->new({
+                  cipherAlgorithm => $cipherAlgorithm,
+                  cipherChaining  => 'ECB',
+                  hashAlgorithm   => $hashAlgorithm,
+                  salt            => $salt,
+                  password        => $password,
+                  keyBits         => $keyBits,
+                  spinCount       => 50000
+              });
+
+    $decryptor->verifyPassword($encryptedVerifier, $encryptedVerifierHash);
+
+    my $in = new IO::File;
+    $in->open("<$packageFile") || die 'File/handle opening error';
+    $in->binmode();
+
+    my ($fh, $filename) = File::Temp::tempfile();
+    binmode($fh);
+    my $out = IO::Handle->new_from_fd($fh, 'w') || die "TempFile error!";
+
+    my $inbuf;
+    $in->read($inbuf, 8);
+    my $fileSize = unpack('L', $inbuf);
+
+    $decryptor->decryptFile($in, $out, 1024, $fileSize);
+
+    $in->close();
+    $out->close();
+
+    return $filename;
+}
+
+sub agileDecryption {
+    my ($infoFH, $packageFile, $password) = @_;
+
+    my $xml = XML::Twig->new;
+    $xml->parse($infoFH);
+
+    my ($info) = $xml->find_nodes('//encryption/keyEncryptors/keyEncryptor/p:encryptedKey');
+
+    my $encryptedVerifierHashInput = MIME::Base64::decode($info->att('encryptedVerifierHashInput'));
+    my $encryptedVerifierHashValue = MIME::Base64::decode($info->att('encryptedVerifierHashValue'));
+    my $encryptedKeyValue = MIME::Base64::decode($info->att('encryptedKeyValue'));
+
+    my $keyDecryptor = Spreadsheet::ParseXLSX::decryptor::Agile->new({
+                  cipherAlgorithm => $info->att('cipherAlgorithm'),
+                  cipherChaining  => $info->att('cipherChaining'),
+                  hashAlgorithm   => $info->att('hashAlgorithm'),
+                  salt            => MIME::Base64::decode($info->att('saltValue')),
+                  password        => $password,
+                  keyBits         => 0 + $info->att('keyBits'),
+                  spinCount       => 0 + $info->att('spinCount'),
+                  blockSize       => 0 + $info->att('blockSize')
+              });
+
+    $keyDecryptor->verifyPassword($encryptedVerifierHashInput, $encryptedVerifierHashValue);
+
+    my $key = $keyDecryptor->decrypt($encryptedKeyValue, "\x14\x6e\x0b\xe7\xab\xac\xd0\xd6");
+
+    ($info) = $xml->find_nodes('//encryption/keyData');
+
+    my $fileDecryptor = Spreadsheet::ParseXLSX::decryptor::Agile->new({
+                  cipherAlgorithm => $info->att('cipherAlgorithm'),
+                  cipherChaining  => $info->att('cipherChaining'),
+                  hashAlgorithm   => $info->att('hashAlgorithm'),
+                  salt            => MIME::Base64::decode($info->att('saltValue')),
+                  password        => $password,
+                  keyBits         => 0 + $info->att('keyBits'),
+                  blockSize       => 0 + $info->att('blockSize')
+              });
+
+    my $in = new IO::File;
+    $in->open("<$packageFile") || die 'File/handle opening error';
+    $in->binmode();
+
+    my ($fh, $filename) = File::Temp::tempfile();
+    binmode($fh);
+    my $out = IO::Handle->new_from_fd($fh, 'w') || die "TempFile error!";
+
+    my $inbuf;
+    $in->read($inbuf, 8);
+    my $fileSize = unpack('L', $inbuf);
+
+    $fileDecryptor->decryptFile($in, $out, 4096, $key, $fileSize);
+
+    $in->close();
+    $out->close();
+
+    return $filename;
+}
+
+sub new {
+    my $class = shift;
+    my $self = shift;
+
+    $self->{keyLength} = $self->{keyBits} / 8;
+
+    if ($self->{hashAlgorithm} eq 'SHA512') {
+        $self->{hashProc} = \&Digest::SHA::sha512;
+    } elsif ($self->{hashAlgorithm} eq 'SHA-1') {
+        $self->{hashProc} = \&Digest::SHA::sha1;
+    } elsif ($self->{hashAlgorithm} eq 'SHA256') {
+        $self->{hashProc} = \&Digest::SHA::sha256;
+    } else {
+        die "Unsupported hash algorithm: $self->{hashAlgorithm}";
+    }
+
+    return bless $self, $class;
+}
+
+package Spreadsheet::ParseXLSX::decryptor::Agile;
+
+use strict;
+use warnings;
+
+use parent -norequire, 'Spreadsheet::ParseXLSX::decryptor';
+
+sub new {
+    my $class = shift;
+    my $self = Spreadsheet::ParseXLSX::decryptor->new(@_);
+    bless $self, $class;
+}
+
+sub decrypt {
+    my $self = shift;
+    my ($encryptedValue, $blockKey) = @_;
+
+    my $key = $self->_generateDecryptionKey($blockKey);
+    my $iv = $self->_generateInitializationVector('', $self->{blockSize});
+    my $cbc = Crypt::Mode::CBC->new($self->{cipherAlgorithm}, 0);
+    return $cbc->decrypt($encryptedValue, $key, $iv);
+}
+
+sub _generateDecryptionKey {
+    my $self = shift;
+    my ($blockKey) = @_;
+
+    my $hash;
+
+    unless ($self->{pregeneratedKey}) {
+        $hash = $self->{hashProc}->($self->{salt} . Encode::encode('UTF-16LE', $self->{password}));
+        for (my $i = 0; $i < $self->{spinCount}; $i++) {
+            $hash = $self->{hashProc}->(pack('L', $i) . $hash);
+        }
+        $self->{pregeneratedKey} = $hash;
+    }
+
+    $hash = $self->{hashProc}->($self->{pregeneratedKey} . $blockKey);
+
+    if (length($hash) > $self->{keyLength}) {
+        $hash = substr($hash, 0, $self->{keyLength});
+    } elsif (length($hash) < $self->{keyLength}) {
+        $hash .= "\x36" x ($self->{keyLength} - length($hash));
+    }
+    return $hash;
+}
+
+sub _generateInitializationVector {
+    my $self = shift;
+    my ($blockKey, $blockSize) = @_;
+
+    my $iv;
+    if ($blockKey) {
+        $iv = $self->{hashProc}->($self->{salt} . $blockKey);
+    } else {
+        $iv = $self->{salt};
+    }
+
+    if (length($iv) > $blockSize) {
+        $iv = substr($iv, 0, $blockSize);
+    } elsif (length($iv) < $blockSize) {
+        $iv = $iv . ("\x36" x ($blockSize - length($iv)));
+    }
+
+    return $iv;
+}
+
+sub decryptFile {
+    my $self = shift;
+    my ($inFile, $outFile, $bufferLength, $key, $fileSize) = @_;
+
+    my $cbc = Crypt::Mode::CBC->new($self->{cipherAlgorithm}, 0);
+
+    my $inbuf;
+    my $i = 0;
+
+    while (($fileSize > 0) && (my $inlen = $inFile->read($inbuf, $bufferLength))) {
+        my $blockId = pack('L', $i);
+
+        my $iv = $self->_generateInitializationVector($blockId, $self->{blockSize});
+
+        if ($inlen < $bufferLength) {
+            $inbuf .= "\x00" x ($bufferLength - $inlen);
+        }
+
+        my $outbuf = $cbc->decrypt($inbuf, $key, $iv);
+        if ($fileSize < $inlen) {
+            $inlen = $fileSize;
+        }
+
+        $outFile->write($outbuf, $inlen);
+        $i++;
+        $fileSize -= $inlen;
+    }
+}
+
+sub verifyPassword {
+    my $self = shift;
+
+    my ($encryptedVerifier, $encryptedVerifierHash) = @_;
+
+    my $encryptedVerifierHash0 = $self->{hashProc}->($self->decrypt($encryptedVerifier, "\xfe\xa7\xd2\x76\x3b\x4b\x9e\x79"));
+    $encryptedVerifierHash = $self->decrypt($encryptedVerifierHash, "\xd7\xaa\x0f\x6d\x30\x61\x34\x4e");
+
+    die "Wrong password: $self" unless ($encryptedVerifierHash0 eq $encryptedVerifierHash);
+}
+
+package Spreadsheet::ParseXLSX::decryptor::Standard;
+
+use strict;
+use warnings;
+
+use parent -norequire, 'Spreadsheet::ParseXLSX::decryptor';
+
+sub new {
+    my $class = shift;
+    my $self = Spreadsheet::ParseXLSX::decryptor->new(@_);
+    bless $self, $class;
+}
+
+sub decrypt {
+    my $self = shift;
+    my ($encryptedValue) = @_;
+
+    my $key = $self->_generateDecryptionKey("\x00" x 4);
+    my $ecb = Crypt::Mode::ECB->new($self->{cipherAlgorithm}, 0);
+    return $ecb->decrypt($encryptedValue, $key);
+}
+
+sub decryptFile {
+    my $self = shift;
+    my ($inFile, $outFile, $bufferLength, $fileSize) = @_;
+
+    my $key = $self->_generateDecryptionKey("\x00" x 4);
+    my $ecb = Crypt::Mode::ECB->new($self->{cipherAlgorithm}, 0);
+
+    my $inbuf;
+    my $i = 0;
+
+    while (($fileSize > 0) && (my $inlen = $inFile->read($inbuf, $bufferLength))) {
+        if ($inlen < $bufferLength) {
+            $inbuf .= "\x00" x ($bufferLength - $inlen);
+        }
+
+        my $outbuf = $ecb->decrypt($inbuf, $key);
+        if ($fileSize < $inlen) {
+            $inlen = $fileSize;
+        }
+
+        $outFile->write($outbuf, $inlen);
+        $i++;
+        $fileSize -= $inlen;
+    }
+}
+
+sub _generateDecryptionKey {
+    my $self = shift;
+    my ($blockKey) = @_;
+
+    my $hash;
+    unless ($self->{pregeneratedKey}) {
+        $hash = $self->{hashProc}->($self->{salt} . Encode::encode('UTF-16LE', $self->{password}));
+        for (my $i = 0; $i < $self->{spinCount}; $i++) {
+            $hash = $self->{hashProc}->(pack('L', $i) . $hash);
+        }
+        $self->{pregeneratedKey} = $hash;
+    }
+
+    $hash = $self->{hashProc}->($self->{pregeneratedKey} . $blockKey);
+
+    my $x1 = $self->{hashProc}->(("\x36" x 64) ^ $hash);
+    if (length($x1) >= $self->{keyLength}) {
+        $hash = substr($x1, 0, $self->{keyLength});
+    } else {
+        my $x2 = $self->{hashProc}->(("\x5C" x 64) ^ $hash);
+        $hash = substr($x1 . $x2, 0, $self->{keyLength});
+    }
+
+    return $hash;
+}
+
+sub verifyPassword {
+    my $self = shift;
+
+    my ($encryptedVerifier, $encryptedVerifierHash) = @_;
+
+    my $verifier = $self->decrypt($encryptedVerifier);
+    my $verifierHash = $self->decrypt($encryptedVerifierHash);
+
+    my $verifierHash0 = $self->{hashProc}->($verifier);
+
+    die "Wrong password: $self" unless ($verifierHash0 eq substr($verifierHash, 0, length($verifierHash0)));
 }
 
 =head1 INCOMPATIBILITIES
