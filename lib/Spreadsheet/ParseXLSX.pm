@@ -116,6 +116,7 @@ sub _parse_workbook {
               _Book    => $workbook,
               _SheetNo => $idx,
           );
+          $sheet->{SheetHidden} = 1 if defined $_->att('state') and $_->att('state') eq 'hidden';
           $self->_parse_sheet($sheet, $files->{sheets}{$idx});
           ($sheet)
         } else {
@@ -147,7 +148,9 @@ sub _parse_sheet {
 
     my @column_formats;
     my @column_widths;
+    my @columns_hidden;
     my @row_heights;
+    my @rows_hidden;
 
     my $default_row_height   = 15;
     my $default_column_width = 10;
@@ -252,6 +255,7 @@ sub _parse_sheet {
                 for my $colnum ($col->att('min')..$col->att('max')) {
                     $column_widths[$colnum - 1] = $col->att('width');
                     $column_formats[$colnum - 1] = $col->att('style');
+                    $columns_hidden[$colnum - 1] = $col->att('hidden');
                 }
 
                 $twig->purge;
@@ -261,6 +265,7 @@ sub _parse_sheet {
                 my ( $twig, $row ) = @_;
 
                 $row_heights[ $row->att('r') - 1 ] = $row->att('ht');
+                $rows_hidden[ $row->att('r') - 1 ] = $row->att('hidden');
 
                 $twig->purge;
             },
@@ -395,10 +400,12 @@ sub _parse_sheet {
     $sheet->{RowHeight} = [
         map { defined $_ ? 0+$_ : 0+$default_row_height } @row_heights
     ];
+    $sheet->{RowHidden} = \@rows_hidden;
     $sheet->{ColWidth} = [
         map { defined $_ ? 0+$_ : 0+$default_column_width } @column_widths
     ];
     $sheet->{ColFmtNo} = \@column_formats;
+    $sheet->{ColHidden} = \@columns_hidden;
 
 }
 
