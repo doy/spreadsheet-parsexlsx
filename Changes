@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Fix the test suite on perls compiled with -Duselongdouble (Slaven
+        Rezić, #49)
 
 0.19  2015-12-04
       - Support encrypted xlsx files (mazurin, #37)
