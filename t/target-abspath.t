@@ -6,6 +6,6 @@ use Test::More;
 use Spreadsheet::ParseXLSX;
 
 my $wb = Spreadsheet::ParseXLSX->new->parse('t/data/target-abspath.xlsx');
-is($wb->worksheet(0)->get_cell(1, 0)->value, '10213.576');
+like($wb->worksheet(0)->get_cell(1, 0)->value, qr/^10213\.5/);
 
 done_testing;
