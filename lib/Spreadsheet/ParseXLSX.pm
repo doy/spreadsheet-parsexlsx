@@ -23,6 +23,10 @@ use Spreadsheet::ParseXLSX::Decryptor;
 =head1 DESCRIPTION
 
 This module is an adaptor for L<Spreadsheet::ParseExcel> that reads XLSX files.
+For documentation about the various data that you can retrieve from these
+classes, please see L<Spreadsheet::ParseExcel>,
+L<Spreadsheet::ParseExcel::Workbook>, L<Spreadsheet::ParseExcel::Worksheet>,
+and L<Spreadsheet::ParseExcel::Cell>.
 
 =cut
 
