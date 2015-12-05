@@ -999,6 +999,14 @@ although this may have other consequences such as memory leaks.
 
 =item Intra-cell formatting is discarded
 
+=item Shared formulas are not supported
+
+Shared formula support will require an actual formula parser and quite a bit of
+custom logic, since the only thing stored in the document is the formula for
+the base cell - updating the cell references in the formulas in the rest of the
+cells is handled by the application. Values for these cells are still handled
+properly.
+
 =back
 
 In addition, there are still a few areas which are not yet implemented (the
