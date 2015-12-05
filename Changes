@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.20  2015-12-05
       - Fix the test suite on perls compiled with -Duselongdouble (Slaven
         Rezić, #49)
 
