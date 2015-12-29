@@ -27,7 +27,7 @@ sub open {
 
     my $buffer;
     $infoFH->read($buffer, 8);
-    my ($majorVers, $minorVers) = unpack('SS', $buffer);
+    my ($majorVers, $minorVers) = unpack('vv', $buffer);
 
     my $xlsx;
     if ($majorVers == 4 && $minorVers == 4) {
@@ -70,13 +70,13 @@ sub _standardDecryption {
     my $buffer;
     my $n = $infoFH->read($buffer, 24);
 
-    my ($encryptionHeaderSize, undef, undef, $algID, $algIDHash, $keyBits) = unpack('LLLLLL', $buffer);
+    my ($encryptionHeaderSize, undef, undef, $algID, $algIDHash, $keyBits) = unpack('VVVVVV', $buffer);
 
     $infoFH->seek($encryptionHeaderSize - 0x14, IO::File::SEEK_CUR);
 
     $infoFH->read($buffer, 4);
 
-    my $saltSize = unpack('L', $buffer);
+    my $saltSize = unpack('V', $buffer);
 
     my ($salt, $encryptedVerifier, $verifierHashSize, $encryptedVerifierHash);
 
@@ -84,7 +84,7 @@ sub _standardDecryption {
     $infoFH->read($encryptedVerifier, 16);
 
     $infoFH->read($buffer, 4);
-    $verifierHashSize = unpack('L', $buffer);
+    $verifierHashSize = unpack('V', $buffer);
 
     $infoFH->read($encryptedVerifierHash, 32);
     $infoFH->close();
@@ -120,7 +120,7 @@ sub _standardDecryption {
 
     my $inbuf;
     $packageFH->read($inbuf, 8);
-    my $fileSize = unpack('L', $inbuf);
+    my $fileSize = unpack('V', $inbuf);
 
     $decryptor->decryptFile($packageFH, $fh, 1024, $fileSize);
 
@@ -174,7 +174,7 @@ sub _agileDecryption {
 
     my $inbuf;
     $packageFH->read($inbuf, 8);
-    my $fileSize = unpack('L', $inbuf);
+    my $fileSize = unpack('V', $inbuf);
 
     $fileDecryptor->decryptFile($packageFH, $fh, 4096, $key, $fileSize);
 
