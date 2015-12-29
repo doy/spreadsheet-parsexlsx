@@ -47,7 +47,7 @@ sub _generateDecryptionKey {
     unless ($self->{pregeneratedKey}) {
         $hash = $self->{hashProc}->($self->{salt} . Encode::encode('UTF-16LE', $self->{password}));
         for (my $i = 0; $i < $self->{spinCount}; $i++) {
-            $hash = $self->{hashProc}->(pack('L', $i) . $hash);
+            $hash = $self->{hashProc}->(pack('V', $i) . $hash);
         }
         $self->{pregeneratedKey} = $hash;
     }

@@ -23,7 +23,7 @@ sub _generateDecryptionKey {
     unless ($self->{pregeneratedKey}) {
         $hash = $self->{hashProc}->($self->{salt} . Encode::encode('UTF-16LE', $self->{password}));
         for (my $i = 0; $i < $self->{spinCount}; $i++) {
-            $hash = $self->{hashProc}->(pack('L', $i) . $hash);
+            $hash = $self->{hashProc}->(pack('V', $i) . $hash);
         }
         $self->{pregeneratedKey} = $hash;
     }
@@ -68,7 +68,7 @@ sub decryptFile {
     my $i = 0;
 
     while (($fileSize > 0) && (my $inlen = $inFile->read($inbuf, $bufferLength))) {
-        my $blockId = pack('L', $i);
+        my $blockId = pack('V', $i);
 
         my $iv = $self->_generateInitializationVector($blockId, $self->{blockSize});
 
