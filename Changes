@@ -2,7 +2,9 @@ Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
       - Give a better error message when opening xls files (mchendriks, #52)
-      - Fix opening files where rels use a non-default namespace.
+      - Fix parsing files with non-default XML namespace names
+      - Handle files with no style information
+      - Handle fills that don't specify a pattern type (vfilatov, #41)
 
 0.20  2015-12-05
       - Fix the test suite on perls compiled with -Duselongdouble (Slaven
