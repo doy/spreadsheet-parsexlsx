@@ -125,8 +125,8 @@ sub _parse_workbook {
 
     my $files = $self->_extract_files($zip);
 
-    my ($version)    = $files->{workbook}->find_nodes('//fileVersion');
-    my ($properties) = $files->{workbook}->find_nodes('//workbookPr');
+    my ($version)    = $files->{workbook}->find_nodes('//s:fileVersion');
+    my ($properties) = $files->{workbook}->find_nodes('//s:workbookPr');
 
     if ($version) {
         $workbook->{Version} = $version->att('appName')
@@ -161,7 +161,7 @@ sub _parse_workbook {
     # $workbook->{PrintTitle} = ...;
 
     my @sheets = map {
-        my $idx = $_->att('r:id');
+        my $idx = $_->att('rels:id');
         if ($files->{sheets}{$idx}) {
           my $sheet = Spreadsheet::ParseExcel::Worksheet->new(
               Name     => $_->att('name'),
@@ -174,12 +174,12 @@ sub _parse_workbook {
         } else {
           ()
         }
-    } $files->{workbook}->find_nodes('//sheets/sheet');
+    } $files->{workbook}->find_nodes('//s:sheets/s:sheet');
 
     $workbook->{Worksheet}  = \@sheets;
     $workbook->{SheetCount} = scalar(@sheets);
 
-    my ($node) = $files->{workbook}->find_nodes('//workbookView');
+    my ($node) = $files->{workbook}->find_nodes('//s:workbookView');
     my $selected = $node ? $node->att('activeTab') : undef;
     $workbook->{SelectedSheet} = defined($selected) ? 0+$selected : 0;
 
@@ -207,10 +207,10 @@ sub _parse_sheet {
     my $default_row_height   = 15;
     my $default_column_width = 10;
 
-    my $sheet_xml = XML::Twig->new(
+    my $sheet_xml = $self->_new_twig(
         twig_roots => {
             #XXX need a fallback here, the dimension tag is optional
-            'dimension' => sub {
+            's:dimension' => sub {
                 my ($twig, $dimension) = @_;
 
                 my ($rmin, $cmin, $rmax, $cmax) = $self->_dimensions(
@@ -225,11 +225,11 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'headerFooter' => sub {
+            's:headerFooter' => sub {
                 my ($twig, $hf) = @_;
 
                 my ($helem, $felem) = map {
-                    $hf->first_child($_)
+                    $hf->first_child("s:$_")
                 } qw(oddHeader oddFooter);
                 $sheet->{Header} = $helem->text
                     if $helem;
@@ -239,7 +239,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'pageMargins' => sub {
+            's:pageMargins' => sub {
                 my ($twig, $margin) = @_;
                 map {
                     my $key = "\u${_}Margin";
@@ -250,7 +250,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'pageSetup' => sub {
+            's:pageSetup' => sub {
                 my ($twig, $setup) = @_;
                 $sheet->{Scale} = defined $setup->att('scale')
                                 ? $setup->att('scale')
@@ -267,7 +267,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'mergeCells/mergeCell' => sub {
+            's:mergeCells/s:mergeCell' => sub {
                 my ( $twig, $merge_area ) = @_;
 
                 if (my $ref = $merge_area->att('ref')) {
@@ -290,7 +290,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'sheetFormatPr' => sub {
+            's:sheetFormatPr' => sub {
                 my ( $twig, $format ) = @_;
 
                 $default_row_height   = $format->att('defaultRowHeight')
@@ -301,7 +301,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'col' => sub {
+            's:col' => sub {
                 my ( $twig, $col ) = @_;
 
                 for my $colnum ($col->att('min')..$col->att('max')) {
@@ -313,7 +313,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'row' => sub {
+            's:row' => sub {
                 my ( $twig, $row ) = @_;
 
                 $row_heights[ $row->att('r') - 1 ] = $row->att('ht');
@@ -322,7 +322,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'selection' => sub {
+            's:selection' => sub {
                 my ( $twig, $selection ) = @_;
 
                 if (my $cell = $selection->att('activeCell')) {
@@ -339,7 +339,7 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            'sheetPr/tabColor' => sub {
+            's:sheetPr/s:tabColor' => sub {
                 my ( $twig, $tab_color ) = @_;
 
                 $sheet->{TabColor} = $self->_color($sheet->{_Book}{Color}, $tab_color);
@@ -355,12 +355,12 @@ sub _parse_sheet {
     # 2nd pass: cell/row building is dependent on having parsed the merge definitions
     # beforehand.
 
-    $sheet_xml = XML::Twig->new(
+    $sheet_xml = $self->_new_twig(
         twig_roots => {
-            'sheetData/row' => sub {
+            's:sheetData/s:row' => sub {
                 my ( $twig, $row_elt ) = @_;
 
-                for my $cell ( $row_elt->children('c') ){
+                for my $cell ( $row_elt->children('s:c') ){
                     my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
                     $sheet->{MaxRow} = $row
                         if $sheet->{MaxRow} < $row;
@@ -369,10 +369,10 @@ sub _parse_sheet {
                     my $type = $cell->att('t') || 'n';
                     my $val_xml;
                     if ($type ne 'inlineStr') {
-                        $val_xml = $cell->first_child('v');
+                        $val_xml = $cell->first_child('s:v');
                     }
-                    elsif (defined $cell->first_child('is')) {
-                        $val_xml = ($cell->find_nodes('.//t'))[0];
+                    elsif (defined $cell->first_child('s:is')) {
+                        $val_xml = ($cell->find_nodes('.//s:t'))[0];
                     }
                     my $val = $val_xml ? $val_xml->text : undef;
 
@@ -425,8 +425,8 @@ sub _parse_sheet {
                         Merged   => $format->{Merged},
                         Format   => $format,
                         FormatNo => $format_idx,
-                        ($cell->first_child('f')
-                            ? (Formula => $cell->first_child('f')->text)
+                        ($cell->first_child('s:f')
+                            ? (Formula => $cell->first_child('s:f')->text)
                             : ()),
                     );
                     $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
@@ -468,15 +468,15 @@ sub _parse_shared_strings {
     my $PkgStr = [];
 
     if ($strings) {
-        my $xml = XML::Twig->new(
+        my $xml = $self->_new_twig(
             twig_handlers => {
-                'si' => sub {
+                's:si' => sub {
                     my ( $twig, $si ) = @_;
 
                     # XXX this discards information about formatting within cells
                     # not sure how to represent that
                     push @$PkgStr,
-                      join( '', map { $_->text } $si->find_nodes('.//t') );
+                      join( '', map { $_->text } $si->find_nodes('.//s:t') );
                     $twig->purge;
                 },
             }
@@ -493,8 +493,8 @@ sub _parse_themes {
     return {} unless $themes;
 
     my @color = map {
-        $_->name eq 'a:sysClr' ? $_->att('lastClr') : $_->att('val')
-    } $themes->find_nodes('//a:clrScheme/*/*');
+        $_->name eq 'drawmain:sysClr' ? $_->att('lastClr') : $_->att('val')
+    } $themes->find_nodes('//drawmain:clrScheme/*/*');
 
     # this shouldn't be necessary, but the documentation is wrong here
     # see http://stackoverflow.com/questions/2760976/theme-confusion-in-spreadsheetml
@@ -571,10 +571,10 @@ sub _parse_styles {
     my @fills = map {
         [
             $fill{$_->att('patternType')},
-            $self->_color($workbook->{Color}, $_->first_child('fgColor'), 1),
-            $self->_color($workbook->{Color}, $_->first_child('bgColor'), 1),
+            $self->_color($workbook->{Color}, $_->first_child('s:fgColor'), 1),
+            $self->_color($workbook->{Color}, $_->first_child('s:bgColor'), 1),
         ]
-    } $styles->find_nodes('//fills/fill/patternFill');
+    } $styles->find_nodes('//s:fills/s:fill/s:patternFill');
 
     my @borders = map {
         my $border = $_;
@@ -582,12 +582,12 @@ sub _parse_styles {
             $self->_xml_boolean($border->att($_))
         } qw(diagonalDown diagonalUp);
         my %borderstyles = map {
-            my $e = $border->first_child($_);
+            my $e = $border->first_child("s:$_");
             $_ => ($e ? $e->att('style') || 'none' : 'none')
         } qw(left right top bottom diagonal);
         my %bordercolors = map {
-            my $e = $border->first_child($_);
-            $_ => ($e ? $e->first_child('color') : undef)
+            my $e = $border->first_child("s:$_");
+            $_ => ($e ? $e->first_child('s:color') : undef)
         } qw(left right top bottom diagonal);
         # XXX specs say "begin" and "end" rather than "left" and "right",
         # but... that's not what seems to be in the file itself (sigh)
@@ -611,7 +611,7 @@ sub _parse_styles {
                 $self->_color($workbook->{Color}, $bordercolors{diagonal}),
             ],
         }
-    } $styles->find_nodes('//borders/border');
+    } $styles->find_nodes('//s:borders/s:border');
 
     # these defaults are from
     # http://social.msdn.microsoft.com/Forums/en-US/oxmlsdk/thread/e27aaf16-b900-4654-8210-83c5774a179c
@@ -650,16 +650,16 @@ sub _parse_styles {
         49 => '@',
         (map {
             $_->att('numFmtId') => $_->att('formatCode')
-        } $styles->find_nodes('//numFmts/numFmt')),
+        } $styles->find_nodes('//s:numFmts/s:numFmt')),
     );
 
     my @font = map {
-        my $vert = $_->first_child('vertAlign');
-        my $under = $_->first_child('u');
-        my $heightelem = $_->first_child('sz');
+        my $vert = $_->first_child('s:vertAlign');
+        my $under = $_->first_child('s:u');
+        my $heightelem = $_->first_child('s:sz');
         # XXX i guess 12 is okay?
         my $height = 0+($heightelem ? $heightelem->att('val') : 12);
-        my $nameelem = $_->first_child('name');
+        my $nameelem = $_->first_child('s:name');
         my $name = $nameelem ? $nameelem->att('val') : '';
         Spreadsheet::ParseExcel::Font->new(
             Height         => $height,
@@ -668,10 +668,10 @@ sub _parse_styles {
             # intact rather than just going straight to #xxxxxx
             # XXX also not sure what it means for the color tag to be missing,
             # just assuming black for now
-            Color          => ($_->first_child('color')
+            Color          => ($_->first_child('s:color')
                 ? $self->_color(
                     $workbook->{Color},
-                    $_->first_child('color')
+                    $_->first_child('s:color')
                 )
                 : '#000000'
             ),
@@ -696,16 +696,16 @@ sub _parse_styles {
             ),
             Name           => $name,
 
-            Bold      => $_->has_child('b') ? 1 : 0,
-            Italic    => $_->has_child('i') ? 1 : 0,
-            Underline => $_->has_child('u') ? 1 : 0,
-            Strikeout => $_->has_child('strike') ? 1 : 0,
+            Bold      => $_->has_child('s:b') ? 1 : 0,
+            Italic    => $_->has_child('s:i') ? 1 : 0,
+            Underline => $_->has_child('s:u') ? 1 : 0,
+            Strikeout => $_->has_child('s:strike') ? 1 : 0,
         )
-    } $styles->find_nodes('//fonts/font');
+    } $styles->find_nodes('//s:fonts/s:font');
 
     my @format = map {
-        my $alignment  = $_->first_child('alignment');
-        my $protection = $_->first_child('protection');
+        my $alignment  = $_->first_child('s:alignment');
+        my $protection = $_->first_child('s:protection');
         Spreadsheet::ParseExcel::Format->new(
             IgnoreFont         => !$self->_xml_boolean($_->att('applyFont')),
             IgnoreFill         => !$self->_xml_boolean($_->att('applyFill')),
@@ -750,7 +750,7 @@ sub _parse_styles {
             BdrDiag  => $borders[$_->att('borderId')]{diagonal},
             Fill     => $fills[$_->att('fillId')],
         )
-    } $styles->find_nodes('//cellXfs/xf');
+    } $styles->find_nodes('//s:cellXfs/s:xf');
 
     return {
         FormatStr => \%format_str,
@@ -768,10 +768,10 @@ sub _extract_files {
 
     my $rels = $self->_parse_xml(
         $zip,
-        $self->_rels_for('')
+        $self->_rels_for(''),
     );
     my $wb_name = ($rels->find_nodes(
-        qq<//Relationship[\@Type="$type_base/officeDocument"]>
+        qq<//packagerels:Relationship[\@Type="$type_base/officeDocument"]>
     ))[0]->att('Target');
     $wb_name =~ s{^/}{};
     my $wb_xml = $self->_parse_xml($zip, $wb_name);
@@ -779,7 +779,7 @@ sub _extract_files {
     my $path_base = $self->_base_path_for($wb_name);
     my $wb_rels = $self->_parse_xml(
         $zip,
-        $self->_rels_for($wb_name)
+        $self->_rels_for($wb_name),
     );
 
     my $get_path = sub {
@@ -792,12 +792,12 @@ sub _extract_files {
 
     my ($strings_xml) = map {
         $zip->memberNamed($get_path->($_->att('Target')))->contents
-    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/sharedStrings"]>);
+    } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/sharedStrings"]>);
 
     my $styles_xml = $self->_parse_xml(
         $zip,
         $get_path->(($wb_rels->find_nodes(
-            qq<//Relationship[\@Type="$type_base/styles"]>
+            qq<//packagerels:Relationship[\@Type="$type_base/styles"]>
         ))[0]->att('Target'))
     );
 
@@ -805,11 +805,11 @@ sub _extract_files {
         if ( my $sheetfile = $zip->memberNamed($get_path->($_->att('Target')))->contents ) {
             ( $_->att('Id') => $sheetfile );
         }
-    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/worksheet"]>);
+    } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/worksheet"]>);
 
     my %themes_xml = map {
         $_->att('Id') => $self->_parse_xml($zip, $get_path->($_->att('Target')))
-    } $wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/theme"]>);
+    } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/theme"]>);
 
     return {
         workbook => $wb_xml,
@@ -824,12 +824,12 @@ sub _extract_files {
 
 sub _parse_xml {
     my $self = shift;
-    my ($zip, $subfile) = @_;
+    my ($zip, $subfile, $map_xmlns) = @_;
 
     my $member = $zip->memberNamed($subfile);
     die "no subfile named $subfile" unless $member;
 
-    my $xml = XML::Twig->new;
+    my $xml = $self->_new_twig;
     $xml->parse(scalar $member->contents);
 
     return $xml;
@@ -947,6 +947,22 @@ sub _apply_tint {
     }
 
     return scalar hls2rgb($h, $l, $s);
+}
+
+sub _new_twig {
+    my $self = shift;
+    my %opts = @_;
+
+    return XML::Twig->new(
+        map_xmlns => {
+            'http://schemas.openxmlformats.org/spreadsheetml/2006/main' => 's',
+            'http://schemas.openxmlformats.org/package/2006/relationships' => 'packagerels',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships' => 'rels',
+            'http://schemas.openxmlformats.org/drawingml/2006/main' => 'drawmain',
+        },
+        keep_original_prefix => 1,
+        %opts,
+    );
 }
 
 =head1 INCOMPATIBILITIES
