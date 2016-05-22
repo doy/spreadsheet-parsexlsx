@@ -25,6 +25,8 @@ sub open {
         ['EncryptionInfo', 'EncryptedPackage']
     );
 
+    return unless $infoFH;
+
     my $buffer;
     $infoFH->read($buffer, 8);
     my ($majorVers, $minorVers) = unpack('SS', $buffer);

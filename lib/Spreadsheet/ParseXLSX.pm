@@ -71,10 +71,11 @@ sub parse {
     my $workbook = Spreadsheet::ParseExcel::Workbook->new;
 
     if ($self->_check_signature($file)) {
-        $file = Spreadsheet::ParseXLSX::Decryptor->open(
+        my $decrypted_file = Spreadsheet::ParseXLSX::Decryptor->open(
             $file,
             $self->{Password}
         );
+        $file = $decrypted_file if $decrypted_file;
     }
 
     if (openhandle($file)) {
