@@ -645,8 +645,9 @@ sub _parse_styles {
     );
 
     my @fills = map {
+        my $pattern_type = $_->att('patternType');
         [
-            $fill{$_->att('patternType')},
+            ($pattern_type ? $fill{$pattern_type} : 0),
             $self->_color($workbook->{Color}, $_->first_child('s:fgColor'), 1),
             $self->_color($workbook->{Color}, $_->first_child('s:bgColor'), 1),
         ]
