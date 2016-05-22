@@ -921,7 +921,7 @@ sub _color {
                 $color = "#$theme";
             }
             else {
-                return;
+                return undef;
             }
         }
 
