@@ -408,6 +408,7 @@ sub _parse_sheet {
 
                     my $format_idx = $cell->att('s') || 0;
                     my $format = $sheet->{_Book}{Format}[$format_idx];
+                    die "unknown format $format_idx" unless $format;
                     $format->{Merged} = !!grep {
                         $row == $_->[0] && $col == $_->[1]
                     } @merged_cells;
@@ -509,6 +510,81 @@ sub _parse_themes {
 sub _parse_styles {
     my $self = shift;
     my ($workbook, $styles) = @_;
+
+    # these defaults are from
+    # http://social.msdn.microsoft.com/Forums/en-US/oxmlsdk/thread/e27aaf16-b900-4654-8210-83c5774a179c
+    my %default_format_str = (
+        0  => 'GENERAL',
+        1  => '0',
+        2  => '0.00',
+        3  => '#,##0',
+        4  => '#,##0.00',
+        5  => '$#,##0_);($#,##0)',
+        6  => '$#,##0_);[Red]($#,##0)',
+        7  => '$#,##0.00_);($#,##0.00)',
+        8  => '$#,##0.00_);[Red]($#,##0.00)',
+        9  => '0%',
+        10 => '0.00%',
+        11 => '0.00E+00',
+        12 => '# ?/?',
+        13 => '# ??/??',
+        14 => 'm/d/yyyy',
+        15 => 'd-mmm-yy',
+        16 => 'd-mmm',
+        17 => 'mmm-yy',
+        18 => 'h:mm AM/PM',
+        19 => 'h:mm:ss AM/PM',
+        20 => 'h:mm',
+        21 => 'h:mm:ss',
+        22 => 'm/d/yyyy h:mm',
+        37 => '#,##0_);(#,##0)',
+        38 => '#,##0_);[Red](#,##0)',
+        39 => '#,##0.00_);(#,##0.00)',
+        40 => '#,##0.00_);[Red](#,##0.00)',
+        45 => 'mm:ss',
+        46 => '[h]:mm:ss',
+        47 => 'mm:ss.0',
+        48 => '##0.0E+0',
+        49 => '@',
+    );
+
+    if (!$styles) {
+        # XXX i guess?
+        my $font = Spreadsheet::ParseExcel::Font->new(
+            Height         => 12,
+            Color          => '#000000',
+            Name           => '',
+        );
+        my $format = Spreadsheet::ParseExcel::Format->new(
+            IgnoreFont         => 1,
+            IgnoreFill         => 1,
+            IgnoreBorder       => 1,
+            IgnoreAlignment    => 1,
+            IgnoreNumberFormat => 1,
+            IgnoreProtection   => 1,
+            FontNo => 0,
+            Font   => $font,
+            FmtIdx => 0,
+            Lock => 1,
+            Hidden => 0,
+            AlignH => 0,
+            Wrap => 0,
+            AlignV => 2,
+            Rotate => 0,
+            Indent => 0,
+            Shrink => 0,
+            BdrStyle => [0, 0, 0, 0],
+            BdrColor => [undef, undef, undef, undef],
+            BdrDiag  => [0, 0, undef],
+            Fill     => [0, undef, undef],
+        );
+
+        return {
+            FormatStr => \%default_format_str,
+            Font      => [ $font ],
+            Format    => [ $format ],
+        };
+    }
 
     my %halign = (
         center           => 2,
@@ -613,41 +689,8 @@ sub _parse_styles {
         }
     } $styles->find_nodes('//s:borders/s:border');
 
-    # these defaults are from
-    # http://social.msdn.microsoft.com/Forums/en-US/oxmlsdk/thread/e27aaf16-b900-4654-8210-83c5774a179c
     my %format_str = (
-        0  => 'GENERAL',
-        1  => '0',
-        2  => '0.00',
-        3  => '#,##0',
-        4  => '#,##0.00',
-        5  => '$#,##0_);($#,##0)',
-        6  => '$#,##0_);[Red]($#,##0)',
-        7  => '$#,##0.00_);($#,##0.00)',
-        8  => '$#,##0.00_);[Red]($#,##0.00)',
-        9  => '0%',
-        10 => '0.00%',
-        11 => '0.00E+00',
-        12 => '# ?/?',
-        13 => '# ??/??',
-        14 => 'm/d/yyyy',
-        15 => 'd-mmm-yy',
-        16 => 'd-mmm',
-        17 => 'mmm-yy',
-        18 => 'h:mm AM/PM',
-        19 => 'h:mm:ss AM/PM',
-        20 => 'h:mm',
-        21 => 'h:mm:ss',
-        22 => 'm/d/yyyy h:mm',
-        37 => '#,##0_);(#,##0)',
-        38 => '#,##0_);[Red](#,##0)',
-        39 => '#,##0.00_);(#,##0.00)',
-        40 => '#,##0.00_);[Red](#,##0.00)',
-        45 => 'mm:ss',
-        46 => '[h]:mm:ss',
-        47 => 'mm:ss.0',
-        48 => '##0.0E+0',
-        49 => '@',
+        %default_format_str,
         (map {
             $_->att('numFmtId') => $_->att('formatCode')
         } $styles->find_nodes('//s:numFmts/s:numFmt')),
@@ -794,12 +837,12 @@ sub _extract_files {
         $zip->memberNamed($get_path->($_->att('Target')))->contents
     } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/sharedStrings"]>);
 
-    my $styles_xml = $self->_parse_xml(
-        $zip,
-        $get_path->(($wb_rels->find_nodes(
-            qq<//packagerels:Relationship[\@Type="$type_base/styles"]>
-        ))[0]->att('Target'))
-    );
+    my ($styles_xml) = map {
+        $self->_parse_xml(
+            $zip,
+            $get_path->($_->att('Target'))
+        )
+    } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/styles"]>);
 
     my %worksheet_xml = map {
         if ( my $sheetfile = $zip->memberNamed($get_path->($_->att('Target')))->contents ) {
@@ -813,9 +856,11 @@ sub _extract_files {
 
     return {
         workbook => $wb_xml,
-        styles   => $styles_xml,
         sheets   => \%worksheet_xml,
         themes   => \%themes_xml,
+        ($styles_xml
+            ? (styles  => $styles_xml)
+            : ()),
         ($strings_xml
             ? (strings => $strings_xml)
             : ()),
