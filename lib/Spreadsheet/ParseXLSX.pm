@@ -835,7 +835,7 @@ sub _extract_files {
     };
 
     my ($strings_xml) = map {
-        $zip->memberNamed($get_path->($_->att('Target')))->contents
+        $self->_zip_file_member($zip, $get_path->($_->att('Target')))
     } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/sharedStrings"]>);
 
     my ($styles_xml) = map {
@@ -846,9 +846,7 @@ sub _extract_files {
     } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/styles"]>);
 
     my %worksheet_xml = map {
-        if ( my $sheetfile = $zip->memberNamed($get_path->($_->att('Target')))->contents ) {
-            ( $_->att('Id') => $sheetfile );
-        }
+        ($_->att('Id') => $self->_zip_file_member($zip, $get_path->($_->att('Target'))))
     } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/worksheet"]>);
 
     my %themes_xml = map {
@@ -872,13 +870,20 @@ sub _parse_xml {
     my $self = shift;
     my ($zip, $subfile, $map_xmlns) = @_;
 
-    my $member = $zip->memberNamed($subfile);
-    die "no subfile named $subfile" unless $member;
-
     my $xml = $self->_new_twig;
-    $xml->parse(scalar $member->contents);
+    $xml->parse($self->_zip_file_member($zip, $subfile));
 
     return $xml;
+}
+
+sub _zip_file_member {
+    my $self = shift;
+    my ($zip, $name) = @_;
+
+    my @members = $zip->membersMatching(qr/^$name$/i);
+    die "no subfile named $name" unless @members;
+
+    return scalar $members[0]->contents;
 }
 
 sub _rels_for {
