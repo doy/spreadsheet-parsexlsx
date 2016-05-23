@@ -548,6 +548,29 @@ sub _parse_styles {
         49 => '@',
     );
 
+    my %default_format_opts = (
+        IgnoreFont         => 1,
+        IgnoreFill         => 1,
+        IgnoreBorder       => 1,
+        IgnoreAlignment    => 1,
+        IgnoreNumberFormat => 1,
+        IgnoreProtection   => 1,
+        FontNo             => 0,
+        FmtIdx             => 0,
+        Lock               => 1,
+        Hidden             => 0,
+        AlignH             => 0,
+        Wrap               => 0,
+        AlignV             => 2,
+        Rotate             => 0,
+        Indent             => 0,
+        Shrink             => 0,
+        BdrStyle           => [0, 0, 0, 0],
+        BdrColor           => [undef, undef, undef, undef],
+        BdrDiag            => [0, 0, undef],
+        Fill               => [0, undef, undef],
+    );
+
     if (!$styles) {
         # XXX i guess?
         my $font = Spreadsheet::ParseExcel::Font->new(
@@ -556,27 +579,8 @@ sub _parse_styles {
             Name           => '',
         );
         my $format = Spreadsheet::ParseExcel::Format->new(
-            IgnoreFont         => 1,
-            IgnoreFill         => 1,
-            IgnoreBorder       => 1,
-            IgnoreAlignment    => 1,
-            IgnoreNumberFormat => 1,
-            IgnoreProtection   => 1,
-            FontNo => 0,
-            Font   => $font,
-            FmtIdx => 0,
-            Lock => 1,
-            Hidden => 0,
-            AlignH => 0,
-            Wrap => 0,
-            AlignV => 2,
-            Rotate => 0,
-            Indent => 0,
-            Shrink => 0,
-            BdrStyle => [0, 0, 0, 0],
-            BdrColor => [undef, undef, undef, undef],
-            BdrDiag  => [0, 0, undef],
-            Fill     => [0, undef, undef],
+            %default_format_opts,
+            Font => $font,
         );
 
         return {
@@ -748,52 +752,54 @@ sub _parse_styles {
     } $styles->find_nodes('//s:fonts/s:font');
 
     my @format = map {
-        my $alignment  = $_->first_child('s:alignment');
-        my $protection = $_->first_child('s:protection');
-        Spreadsheet::ParseExcel::Format->new(
-            IgnoreFont         => !$self->_xml_boolean($_->att('applyFont')),
-            IgnoreFill         => !$self->_xml_boolean($_->att('applyFill')),
-            IgnoreBorder       => !$self->_xml_boolean($_->att('applyBorder')),
-            IgnoreAlignment    => !$self->_xml_boolean($_->att('applyAlignment')),
-            IgnoreNumberFormat => !$self->_xml_boolean($_->att('applyNumberFormat')),
-            IgnoreProtection   => !$self->_xml_boolean($_->att('applyProtection')),
+        my $xml_fmt = $_;
+        my $alignment  = $xml_fmt->first_child('s:alignment');
+        my $protection = $xml_fmt->first_child('s:protection');
+        my %ignore = map {
+            ("Ignore$_" => !$self->_xml_boolean($xml_fmt->att("apply$_")))
+        } qw(Font Fill Border Alignment NumberFormat Protection);
+        my %opts = (
+            %default_format_opts,
+            %ignore,
+        );
 
-            FontNo => 0+$_->att('fontId'),
-            Font   => $font[$_->att('fontId')],
-            FmtIdx => 0+$_->att('numFmtId'),
-
-            Lock => $protection && defined $protection->att('locked')
+        if (!$ignore{IgnoreFont}) {
+            $opts{FontNo} = 0+$xml_fmt->att('fontId');
+        }
+        if (!$ignore{IgnoreFill}) {
+            $opts{Fill} = $fills[$xml_fmt->att('fillId')],
+        }
+        if (!$ignore{IgnoreBorder}) {
+            $opts{BdrStyle} = $borders[$xml_fmt->att('borderId')]{styles},
+            $opts{BdrColor} = $borders[$xml_fmt->att('borderId')]{colors},
+            $opts{BdrDiag}  = $borders[$xml_fmt->att('borderId')]{diagonal},
+        }
+        if (!$ignore{IgnoreAlignment} && $alignment) {
+            $opts{AlignH} = $halign{$alignment->att('horizontal') || 'general'};
+            $opts{Wrap}   = $self->_xml_boolean($alignment->att('wrapText'));
+            $opts{AlignV} = $valign{$alignment->att('vertical') || 'bottom'};
+            $opts{Rotate} = $alignment->att('textRotation');
+            $opts{Indent} = $alignment->att('indent');
+            $opts{Shrink} = $self->_xml_boolean($alignment->att('shrinkToFit'));
+            # JustLast => $iJustL,
+        }
+        if (!$ignore{IgnoreNumberFormat}) {
+            $opts{FmtIdx} = 0+$xml_fmt->att('numFmtId');
+        }
+        if (!$ignore{IgnoreProtection} && $protection) {
+            $opts{Lock} = defined $protection->att('locked')
                 ? $self->_xml_boolean($protection->att('locked'))
                 : 1,
-            Hidden => $protection
-                ? $self->_xml_boolean($protection->att('hidden'))
-                : 0,
-            # Style    => $iStyle,
-            # Key123   => $i123,
-            AlignH => $alignment
-                ? $halign{$alignment->att('horizontal') || 'general'}
-                : 0,
-            Wrap => $alignment
-                ? $self->_xml_boolean($alignment->att('wrapText'))
-                : 0,
-            AlignV => $alignment
-                ? $valign{$alignment->att('vertical') || 'bottom'}
-                : 2,
-            # JustLast => $iJustL,
-            Rotate => $alignment ? $alignment->att('textRotation') : 0,
+            $opts{Hidden} = $self->_xml_boolean($protection->att('hidden'));
+        }
 
-            Indent => $alignment ? $alignment->att('indent') : 0,
-            Shrink => $alignment
-                ? $self->_xml_boolean($alignment->att('shrinkToFit'))
-                : 0,
-            # Merge   => $iMerge,
-            # ReadDir => $iReadDir,
+        $opts{Font} = $font[$opts{FontNo}];
 
-            BdrStyle => $borders[$_->att('borderId')]{styles},
-            BdrColor => $borders[$_->att('borderId')]{colors},
-            BdrDiag  => $borders[$_->att('borderId')]{diagonal},
-            Fill     => $fills[$_->att('fillId')],
-        )
+        # Style    => $iStyle,
+        # Key123   => $i123,
+        # Merge   => $iMerge,
+        # ReadDir => $iReadDir,
+        Spreadsheet::ParseExcel::Format->new(%opts)
     } $styles->find_nodes('//s:cellXfs/s:xf');
 
     return {
