@@ -307,7 +307,7 @@ sub _parse_sheet {
                 for my $colnum ($col->att('min')..$col->att('max')) {
                     $column_widths[$colnum - 1] = $col->att('width');
                     $column_formats[$colnum - 1] = $col->att('style');
-                    $columns_hidden[$colnum - 1] = $col->att('hidden');
+                    $columns_hidden[$colnum - 1] = $self->_xml_boolean($col->att('hidden'));
                 }
 
                 $twig->purge;
@@ -317,7 +317,7 @@ sub _parse_sheet {
                 my ( $twig, $row ) = @_;
 
                 $row_heights[ $row->att('r') - 1 ] = $row->att('ht');
-                $rows_hidden[ $row->att('r') - 1 ] = $row->att('hidden');
+                $rows_hidden[ $row->att('r') - 1 ] = $self->_xml_boolean($row->att('hidden'));
 
                 $twig->purge;
             },
