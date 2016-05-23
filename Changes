@@ -12,6 +12,8 @@ Revision history for Spreadsheet-ParseXLSX
         don't think this fix is likely to break any real files) (Tux, #57)
       - Ensure we coerce hidden state for rows and columns to booleans
         (Jeffery Hammock)
+      - Support extracting rich text formatting from cells (Carlos Alberto
+        Danzos)
 
 0.20  2015-12-05
       - Fix the test suite on perls compiled with -Duselongdouble (Slaven

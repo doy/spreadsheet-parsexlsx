@@ -150,8 +150,14 @@ sub _parse_workbook {
     $workbook->{FormatStr} = $styles->{FormatStr};
     $workbook->{Font}      = $styles->{Font};
 
-    $workbook->{PkgStr} = $self->_parse_shared_strings($files->{strings})
-        if $files->{strings};
+    if ($files->{strings}) {
+        my %string_parse_data = $self->_parse_shared_strings(
+            $files->{strings},
+            $themes->{Color}
+        );
+        $workbook->{PkgStr} = $string_parse_data{PkgStr};
+        $workbook->{Rich}   = $string_parse_data{Rich};
+    }
 
     # $workbook->{StandardWidth} = ...;
 
@@ -377,13 +383,15 @@ sub _parse_sheet {
                     my $val = $val_xml ? $val_xml->text : undef;
 
                     my $long_type;
+                    my $Rich;
                     if (!defined($val)) {
                         $long_type = 'Text';
                         $val = '';
                     }
                     elsif ($type eq 's') {
                         $long_type = 'Text';
-                        $val = $sheet->{_Book}{PkgStr}[$val];
+                        $Rich = $sheet->{_Book}{Rich}->{$val};
+                        $val  = $sheet->{_Book}{PkgStr}[$val];
                     }
                     elsif ($type eq 'n') {
                         $long_type = 'Numeric';
@@ -429,6 +437,7 @@ sub _parse_sheet {
                         ($cell->first_child('s:f')
                             ? (Formula => $cell->first_child('s:f')->text)
                             : ()),
+                        Rich     => $Rich,
                     );
                     $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
                         $cell, $sheet->{_Book}
@@ -462,29 +471,125 @@ sub _parse_sheet {
 
 }
 
+sub _get_text_and_rich_font_by_cell {
+    my $self = shift;
+    my ($si, $theme_colors) = @_;
+
+    # XXX
+    my %default_font_opts = (
+        Height         => 12,
+        Color          => '#000000',
+        Name           => '',
+        Bold           => 0,
+        Italic         => 0,
+        Underline      => 0,
+        UnderlineStyle => 0,
+        Strikeout      => 0,
+        Super          => 0,
+    );
+
+    my $string_text = '';
+    my @rich_font_by_cell;
+    my @nodes_r = $si->find_nodes('.//s:r');
+    if (@nodes_r > 0) {
+        for my $chunk (map { $_->children } @nodes_r) {
+            my $string_length = length($string_text);
+            if ($chunk->name eq 's:t') {
+                if (!@rich_font_by_cell) {
+                    push @rich_font_by_cell, [
+                        $string_length,
+                        Spreadsheet::ParseExcel::Font->new(%default_font_opts)
+                    ];
+                }
+                $string_text .= $chunk->text;
+            }
+            elsif ($chunk->name eq 's:rPr') {
+                my %format_text = %default_font_opts;
+                for my $node_format ($chunk->children) {
+                    if ($node_format->name eq 's:sz') {
+                        $format_text{Height} = $node_format->att('val');
+                    }
+                    elsif ($node_format->name eq 's:color') {
+                        $format_text{Color} = $self->_color(
+                            $theme_colors,
+                            $node_format
+                        );
+                    }
+                    elsif ($node_format->name eq 's:rFont') {
+                        $format_text{Name} = $node_format->att('val');
+                    }
+                    elsif ($node_format->name eq 's:b') {
+                        $format_text{Bold} = 1;
+                    }
+                    elsif ($node_format->name eq 's:i') {
+                        $format_text{Italic} = 1;
+                    }
+                    elsif ($node_format->name eq 's:u') {
+                        $format_text{Underline} = 1;
+                        if (defined $node_format->att('val')) {
+                            $format_text{UnderlineStyle} = 2;
+                        } else {
+                            $format_text{UnderlineStyle} = 1;
+                        }
+                    }
+                    elsif ($node_format->name eq 's:strike') {
+                        $format_text{Strikeout} = 1;
+                    }
+                    elsif ($node_format->name eq 's:vertAlign') {
+                        if ($node_format->att('val') eq 'superscript') {
+                            $format_text{Super} = 1;
+                        }
+                        elsif ($node_format->att('val') eq 'subscript') {
+                            $format_text{Super} = 2;
+                        }
+                    }
+                }
+                push @rich_font_by_cell, [
+                    $string_length,
+                    Spreadsheet::ParseExcel::Font->new(%format_text)
+                ];
+            }
+        }
+    }
+    else {
+        $string_text = join '', map { $_->text } $si->find_nodes('.//s:t');
+    }
+
+    return (
+        String => $string_text,
+        Rich => \@rich_font_by_cell,
+    );
+}
+
 sub _parse_shared_strings {
     my $self = shift;
-    my ($strings) = @_;
+    my ($strings, $theme_colors) = @_;
 
     my $PkgStr = [];
 
+    my %richfonts;
     if ($strings) {
         my $xml = $self->_new_twig(
             twig_handlers => {
                 's:si' => sub {
                     my ( $twig, $si ) = @_;
 
-                    # XXX this discards information about formatting within cells
-                    # not sure how to represent that
-                    push @$PkgStr,
-                      join( '', map { $_->text } $si->find_nodes('.//s:t') );
+                    my %text_rich = $self->_get_text_and_rich_font_by_cell(
+                        $si,
+                        $theme_colors
+                    );
+                    $richfonts{scalar @$PkgStr} = $text_rich{Rich};
+                    push @$PkgStr, $text_rich{String};
                     $twig->purge;
                 },
             }
         );
         $xml->parse( $strings );
     }
-    return $PkgStr;
+    return (
+        Rich   => \%richfonts,
+        PkgStr => $PkgStr,
+    );
 }
 
 sub _parse_themes {
