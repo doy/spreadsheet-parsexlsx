@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.21  2016-05-23
       - Give a better error message when opening xls files (mchendriks, #52)
       - Fix parsing files with non-default XML namespace names
       - Handle files with no style information
