@@ -872,12 +872,12 @@ sub _parse_styles {
             $opts{FontNo} = 0+$xml_fmt->att('fontId');
         }
         if (!$ignore{IgnoreFill}) {
-            $opts{Fill} = $fills[$xml_fmt->att('fillId')],
+            $opts{Fill} = $fills[$xml_fmt->att('fillId')];
         }
         if (!$ignore{IgnoreBorder}) {
-            $opts{BdrStyle} = $borders[$xml_fmt->att('borderId')]{styles},
-            $opts{BdrColor} = $borders[$xml_fmt->att('borderId')]{colors},
-            $opts{BdrDiag}  = $borders[$xml_fmt->att('borderId')]{diagonal},
+            $opts{BdrStyle} = $borders[$xml_fmt->att('borderId')]{styles};
+            $opts{BdrColor} = $borders[$xml_fmt->att('borderId')]{colors};
+            $opts{BdrDiag}  = $borders[$xml_fmt->att('borderId')]{diagonal};
         }
         if (!$ignore{IgnoreAlignment} && $alignment) {
             $opts{AlignH} = $halign{$alignment->att('horizontal') || 'general'};
@@ -894,7 +894,7 @@ sub _parse_styles {
         if (!$ignore{IgnoreProtection} && $protection) {
             $opts{Lock} = defined $protection->att('locked')
                 ? $self->_xml_boolean($protection->att('locked'))
-                : 1,
+                : 1;
             $opts{Hidden} = $self->_xml_boolean($protection->att('hidden'));
         }
 
