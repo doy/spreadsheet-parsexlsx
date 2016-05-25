@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Fix some regressions around cell style application (Tux)
+      - Speed up parsing of large spreadsheets
 
 0.21  2016-05-23
       - Give a better error message when opening xls files (mchendriks, #52)
