@@ -213,6 +213,8 @@ sub _parse_sheet {
     my $default_row_height   = 15;
     my $default_column_width = 10;
 
+    my %cells;
+
     my $sheet_xml = $self->_new_twig(
         twig_roots => {
             #XXX need a fallback here, the dimension tag is optional
@@ -353,16 +355,6 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-        }
-    );
-
-    $sheet_xml->parse( $sheet_file );
-
-    # 2nd pass: cell/row building is dependent on having parsed the merge definitions
-    # beforehand.
-
-    $sheet_xml = $self->_new_twig(
-        twig_roots => {
             's:sheetData/s:row' => sub {
                 my ( $twig, $row_elt ) = @_;
 
@@ -417,7 +409,6 @@ sub _parse_sheet {
                     my $format_idx = $cell->att('s') || 0;
                     my $format = $sheet->{_Book}{Format}[$format_idx];
                     die "unknown format $format_idx" unless $format;
-                    $format->{Merged} = $merged_cells{"$row;$col"};
 
                     # see the list of built-in formats below in _parse_styles
                     # XXX probably should figure this out from the actual format string,
@@ -430,7 +421,7 @@ sub _parse_sheet {
                     my $cell = Spreadsheet::ParseExcel::Cell->new(
                         Val      => $val,
                         Type     => $long_type,
-                        Merged   => $format->{Merged},
+                        Merged   => undef, # fix up later
                         Format   => $format,
                         FormatNo => $format_idx,
                         ($formula
@@ -441,16 +432,20 @@ sub _parse_sheet {
                     $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
                         $cell, $sheet->{_Book}
                     );
+                    $cells{"$row;$col"} = $cell;
                     $sheet->{Cells}[$row][$col] = $cell;
                 }
 
                 $twig->purge;
             },
-
         }
     );
 
     $sheet_xml->parse( $sheet_file );
+
+    for my $key (keys %merged_cells) {
+        $cells{$key}{Merged} = 1 if $cells{$key};
+    }
 
     if ( ! $sheet->{Cells} ){
         $sheet->{MaxRow} = $sheet->{MaxCol} = -1;
