@@ -868,18 +868,15 @@ sub _parse_styles {
             %ignore,
         );
 
-        if (!$ignore{IgnoreFont}) {
-            $opts{FontNo} = 0+$xml_fmt->att('fontId');
-        }
-        if (!$ignore{IgnoreFill}) {
-            $opts{Fill} = $fills[$xml_fmt->att('fillId')];
-        }
-        if (!$ignore{IgnoreBorder}) {
-            $opts{BdrStyle} = $borders[$xml_fmt->att('borderId')]{styles};
-            $opts{BdrColor} = $borders[$xml_fmt->att('borderId')]{colors};
-            $opts{BdrDiag}  = $borders[$xml_fmt->att('borderId')]{diagonal};
-        }
-        if (!$ignore{IgnoreAlignment} && $alignment) {
+        $opts{FmtIdx}   = 0+($xml_fmt->att('numFmtId')||0);
+        $opts{FontNo}   = 0+($xml_fmt->att('fontId')||0);
+        $opts{Font}     = $font[$opts{FontNo}];
+        $opts{Fill}     = $fills[$xml_fmt->att('fillId')||0];
+        $opts{BdrStyle} = $borders[$xml_fmt->att('borderId')||0]{styles};
+        $opts{BdrColor} = $borders[$xml_fmt->att('borderId')||0]{colors};
+        $opts{BdrDiag}  = $borders[$xml_fmt->att('borderId')||0]{diagonal};
+
+        if ($alignment) {
             $opts{AlignH} = $halign{$alignment->att('horizontal') || 'general'};
             $opts{Wrap}   = $self->_xml_boolean($alignment->att('wrapText'));
             $opts{AlignV} = $valign{$alignment->att('vertical') || 'bottom'};
@@ -888,17 +885,13 @@ sub _parse_styles {
             $opts{Shrink} = $self->_xml_boolean($alignment->att('shrinkToFit'));
             # JustLast => $iJustL,
         }
-        if (!$ignore{IgnoreNumberFormat}) {
-            $opts{FmtIdx} = 0+$xml_fmt->att('numFmtId');
-        }
-        if (!$ignore{IgnoreProtection} && $protection) {
+
+        if ($protection) {
             $opts{Lock} = defined $protection->att('locked')
                 ? $self->_xml_boolean($protection->att('locked'))
                 : 1;
             $opts{Hidden} = $self->_xml_boolean($protection->att('hidden'));
         }
-
-        $opts{Font} = $font[$opts{FontNo}];
 
         # Style    => $iStyle,
         # Key123   => $i123,
