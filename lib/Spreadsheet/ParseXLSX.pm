@@ -202,7 +202,7 @@ sub _parse_sheet {
     $sheet->{MaxCol} = -1;
     $sheet->{Selection} = [ 0, 0 ];
 
-    my @merged_cells;
+    my %merged_cells;
 
     my @column_formats;
     my @column_widths;
@@ -288,7 +288,7 @@ sub _parse_sheet {
                     ];
                     for my $row ($toprow .. $bottomrow) {
                         for my $col ($leftcol .. $rightcol) {
-                            push(@merged_cells, [$row, $col]);
+                            $merged_cells{"$row;$col"} = 1;
                         }
                     }
                 }
@@ -417,9 +417,7 @@ sub _parse_sheet {
                     my $format_idx = $cell->att('s') || 0;
                     my $format = $sheet->{_Book}{Format}[$format_idx];
                     die "unknown format $format_idx" unless $format;
-                    $format->{Merged} = !!grep {
-                        $row == $_->[0] && $col == $_->[1]
-                    } @merged_cells;
+                    $format->{Merged} = $merged_cells{"$row;$col"};
 
                     # see the list of built-in formats below in _parse_styles
                     # XXX probably should figure this out from the actual format string,
