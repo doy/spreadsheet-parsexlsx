@@ -428,14 +428,15 @@ sub _parse_sheet {
                         $long_type = 'Date';
                     }
 
+                    my $formula = $cell->first_child('s:f');
                     my $cell = Spreadsheet::ParseExcel::Cell->new(
                         Val      => $val,
                         Type     => $long_type,
                         Merged   => $format->{Merged},
                         Format   => $format,
                         FormatNo => $format_idx,
-                        ($cell->first_child('s:f')
-                            ? (Formula => $cell->first_child('s:f')->text)
+                        ($formula
+                            ? (Formula => $formula->text)
                             : ()),
                         Rich     => $Rich,
                     );
