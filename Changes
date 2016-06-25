@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.24  2016-06-25
       - Support scalar refs as input (rshadow, #59)
 
 0.23  2016-05-28
