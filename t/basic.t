@@ -7,7 +7,13 @@ use Spreadsheet::ParseXLSX;
 
 my $filename = 't/data/Test.xlsx';
 
-for my $file ($filename, do { open my $fh, '<', $filename or die; $fh }) {
+my @inputs = (
+    $filename,
+    do { open my $fh, '<', $filename or die; $fh },
+    do { open my $fh, '<', $filename or die; local $/; my $d = <$fh>; \$d },
+);
+
+for my $file (@inputs) {
     my $wb = Spreadsheet::ParseXLSX->new->parse($file);
     isa_ok($wb, 'Spreadsheet::ParseExcel::Workbook');
 

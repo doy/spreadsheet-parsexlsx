@@ -88,13 +88,20 @@ sub parse {
         $workbook->{File} = undef;
         $workbook->{__tempfile} = $file;
     }
+    elsif (ref($file) eq 'SCALAR') {
+        open my $fh, '+<', $file
+            or die "Can't create filehandle from memory data";
+        $zip->readFromFileHandle($fh) == Archive::Zip::AZ_OK
+            or die "Can't open scalar ref as a zip file";
+        $workbook->{File} = undef;
+    }
     elsif (!ref($file)) {
         $zip->read($file) == Archive::Zip::AZ_OK
             or die "Can't open file '$file' as a zip file";
         $workbook->{File} = $file;
     }
     else {
-        die "Argument to 'new' must be a filename or open filehandle";
+        die "Argument to 'new' must be a filename, open filehandle, or scalar ref";
     }
 
     return $self->_parse_workbook($zip, $workbook, $formatter);
@@ -109,6 +116,9 @@ sub _check_signature {
         bless $file, 'IO::File' if ref($file) eq 'GLOB'; # sigh
         $file->read($signature, 2);
         $file->seek(-2, IO::File::SEEK_CUR);
+    }
+    elsif (ref($file) eq 'SCALAR') {
+        $signature = substr($$file, 0, 2);
     }
     elsif (!ref($file)) {
         my $fh = IO::File->new($file, 'r');
