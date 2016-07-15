@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.25  2016-07-14
       - Fix encryption.t test on Windows (marks6i, #60)
 
 0.24  2016-06-25
