@@ -9,8 +9,8 @@ my $filename = 't/data/Test.xlsx';
 
 my @inputs = (
     $filename,
-    do { open my $fh, '<', $filename or die; $fh },
-    do { open my $fh, '<', $filename or die; local $/; my $d = <$fh>; \$d },
+    do { open my $fh, '<:raw:bytes', $filename or die; $fh },
+    do { open my $fh, '<:raw:bytes', $filename or die; local $/; my $d = <$fh>; \$d },
 );
 
 for my $file (@inputs) {

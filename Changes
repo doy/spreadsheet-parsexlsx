@@ -1,6 +1,7 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Fix encryption.t test on Windows (marks6i, #60)
 
 0.24  2016-06-25
       - Support scalar refs as input (rshadow, #59)
