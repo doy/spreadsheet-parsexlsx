@@ -3,10 +3,10 @@
 use Spreadsheet::ParseExcel::Utility qw(sheetRef);
 use Spreadsheet::ParseXLSX;
 use Test::More tests => 58;
- 
+
 use strict;
 use warnings;
- 
+
 my $spreadsheet = Spreadsheet::ParseXLSX->new();
 my $workbook = $spreadsheet->parse('t/data/TestHyperlinks.xlsx');
 my $worksheet = $workbook->worksheet('Sheet1');
@@ -57,23 +57,12 @@ my $expected_urls = {
         link => 'file:///\\\\server\\quirks\\sometest.bat',
     },
 
-    'E6' => {
-        desc => 'TestHyperlinks.xlsx',
-        rel  => 1,
-        link => 'TestHyperlinks.xlsx',
-    },
-    'E7' => {
-        desc => 'Rel: TestHyperlinks.xlsx',
-        rel  => 1,
-        link => 'TestHyperlinks.xlsx',
-    },
-
     'F7' => {
         desc => 'mailto:fred@example.net',
         link => 'mailto:fred@example.net',
     },
 };
- 
+
 foreach my $test_cell (sort keys %$expected_urls) {
     # First check our cell reference is valid
     my ($row, $column) = sheetRef($test_cell);
@@ -99,12 +88,12 @@ foreach my $test_cell (sort keys %$expected_urls) {
 
     my $cell = $worksheet->get_cell($row, $column);
     ok(defined($cell), sprintf('Cell "%s" defined', $test_cell));
-    
+
     SKIP: {
         skip(sprintf('Cell "%s" not defined', $test_cell), ($link ? 3 : 1)) unless(defined($cell));
-        
+
         my $hyperlink = $cell->get_hyperlink();
-        
+
         if ($link) {
             ok(ref($hyperlink) eq 'ARRAY', 'Got hyperlink information from cell: ' . $test_cell);
             is($hyperlink->[0], $desc, sprintf('Cell "%s" hyperlink description matches "%s"', $test_cell, $desc));
@@ -115,8 +104,19 @@ foreach my $test_cell (sort keys %$expected_urls) {
     }        
 }
  
-# The following test returns a different value to Spreadsheet::ParseExcel - I don't know if this is correct or no
-my $expected_urls = {
+# The following tests return different values to Spreadsheet::ParseExcel - I don't know if this is correct or not
+my $todo_expected_urls = {
+    'E6' => {
+        desc => 'TestHyperlinks.xlsx',
+        rel  => 1,
+        link => 'TestHyperlinks.xlsx',
+    },
+    'E7' => {
+        desc => 'Rel: TestHyperlinks.xlsx',
+        rel  => 1,
+        link => 'TestHyperlinks.xlsx',
+    },
+
     'F6' => {
         desc => 'Sheet1!A7',
         link => '#Sheet1%21A7',
@@ -125,8 +125,8 @@ my $expected_urls = {
 
 TODO: {
     local $TODO = 'Confirmation of difference to Spreadsheet::ParseExcel required';
-    
-    foreach my $test_cell (sort keys %$expected_urls) {
+
+    foreach my $test_cell (sort keys %$todo_expected_urls) {
         # First check our cell reference is valid
         my ($row, $column) = sheetRef($test_cell);
 
@@ -136,9 +136,9 @@ TODO: {
         }
 
         # Now extract out our expected data
-        my $link = $expected_urls->{$test_cell}->{link};
-        my $desc = $expected_urls->{$test_cell}->{desc};
-        my $relative_link = $expected_urls->{$test_cell}->{rel} || 0;
+        my $link = $todo_expected_urls->{$test_cell}->{link};
+        my $desc = $todo_expected_urls->{$test_cell}->{desc};
+        my $relative_link = $todo_expected_urls->{$test_cell}->{rel} || 0;
 
         if ($relative_link) {
             $link = 'file:///t/data/' . $link;
