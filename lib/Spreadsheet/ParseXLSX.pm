@@ -499,16 +499,15 @@ sub _parse_sheet_links {
                 my $twig = shift;
                 my $relationship = shift;
 
-                # TODO: I am only handling specific external links here, not internal spreadsheet links
                 if (
-                    $relationship->att('Type') eq 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
-                    && $relationship->att('TargetMode') eq 'External'
+                  $relationship->att('Type') eq 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
+                  && $relationship->att('TargetMode') eq 'External'
                 ) {
                     # Store the target URL in a hash by relationship id
                     $rels->{$relationship->att('Id')} = $relationship->att('Target');
                 }
-            }
-        }
+            },
+        },
     );
 
     # Run the parser
@@ -521,27 +520,27 @@ sub _parse_sheet_links {
                 my $twig = shift;
                 my $hyperlink = shift;
 
+                # Work out our row and column
+                my ($row, $col) = $self->_cell_to_row_col($hyperlink->att('ref'));
+
+                # Get the cell
+                my $cell = $sheet->{Cells}[$row][$col];
+
+                # Do I have a cell?
+                unless ($cell) {
+                    # No - just create an empty value for now
+                    $cell = $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new();
+                }
+
                 # Is this an external hyperlink I've parsed from the rels?
                 if (
                     $hyperlink->att('r:id')
                     && $rels
                     && $rels->{$hyperlink->att('r:id')}
                 ) {
-                    # Yes - work out our row and column
-                    my ($row, $col) = $self->_cell_to_row_col($hyperlink->att('ref'));
-
-                    # Get the cell
-                    my $cell = $sheet->{Cells}[$row][$col];
-
-                    # Do I have a cell?
-                    unless ($cell) {
-                        # No - just create an empty value for now
-                        $cell = $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new();
-                    }
-
-                    # Check if we need to frig our destination a bit
+                    # Yes - Check if we need to frig our destination a bit
                     my $destination_url;
-                    
+
                     my $link_location = URI->new(
                         sprintf(
                             '%s%s%s',
@@ -561,7 +560,9 @@ sub _parse_sheet_links {
                     } else { 
                         my @path_segments = $link_location->path_segments();
 
+                        # Check how many path segments we had
                         if (scalar(@path_segments) > 1) {
+                            # We had more than one so just use as is
                             $destination_url = sprintf(
                                 '%s%s%s',
                                 $rels->{$hyperlink->att('r:id')},
@@ -601,18 +602,6 @@ sub _parse_sheet_links {
                     ];
                 } else {
                     # This is an internal hyperlink
-
-                    # Work out our row and column
-                    my ($row, $col) = $self->_cell_to_row_col($hyperlink->att('ref'));
-
-                    # Get the cell
-                    my $cell = $sheet->{Cells}[$row][$col];
-
-                    # Do I have a cell?
-                    unless ($cell) {
-                        # No - just create an empty value for now
-                        $cell = $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new();
-                    }
 
                     # Add the hyperlink
                     $cell->{Hyperlink} = [
