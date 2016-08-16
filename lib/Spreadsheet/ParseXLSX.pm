@@ -1,7 +1,7 @@
 package Spreadsheet::ParseXLSX;
 use strict;
 use warnings;
-use 5.008;
+use 5.010;
 # ABSTRACT: parse XLSX files
 
 use Archive::Zip;
