@@ -101,9 +101,9 @@ foreach my $test_cell (sort keys %$expected_urls) {
         } else {
             is($hyperlink, undef, sprintf('Cell "%s" has no hyperlink', $test_cell));
         }
-    }        
+    }
 }
- 
+
 # The following tests return different values to Spreadsheet::ParseExcel - I don't know if this is correct or not
 my $todo_expected_urls = {
     'E6' => {
@@ -164,8 +164,8 @@ TODO: {
             } else {
                 is($hyperlink, undef, sprintf('Cell "%s" has no hyperlink', $test_cell));
             }
-        }        
+        }
     }
-}    
+}
 
 exit;
