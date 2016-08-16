@@ -8,7 +8,6 @@ use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel 0.61;
-use URI;
 use XML::Twig;
 
 use Spreadsheet::ParseXLSX::Decryptor;
@@ -539,56 +538,12 @@ sub _parse_sheet_links {
                     && $rels->{$hyperlink->att('r:id')}
                 ) {
                     # Yes - Check if we need to frig our destination a bit
-                    my $destination_url;
-
-                    my $link_location = URI->new(
-                        sprintf(
-                            '%s%s%s',
-                            $rels->{$hyperlink->att('r:id')},
-                            $hyperlink->att('location') ? '#' : '',
-                            $hyperlink->att('location') || '',
-                        )
+                    my $destination_url = sprintf(
+                        '%s%s%s',
+                        $rels->{$hyperlink->att('r:id')},
+                        $hyperlink->att('location') ? '#' : '',
+                        $hyperlink->att('location') || '',
                     );
-
-                    if ($link_location->has_recognized_scheme()) {
-                        $destination_url  = sprintf(
-                            '%s%s%s',
-                            $rels->{$hyperlink->att('r:id')},
-                            $hyperlink->att('location') ? '#' : '',
-                            $hyperlink->att('location') || '',
-                        );
-                    } else { 
-                        my @path_segments = $link_location->path_segments();
-
-                        # Check how many path segments we had
-                        if (scalar(@path_segments) > 1) {
-                            # We had more than one so just use as is
-                            $destination_url = sprintf(
-                                '%s%s%s',
-                                $rels->{$hyperlink->att('r:id')},
-                                $hyperlink->att('location') ? '#' : '',
-                                $hyperlink->att('location') || '',
-                            );
-                        } else {
-                            my $workbook_url = URI->new($sheet->{_Book}->{File});
-                            my @workbook_path_segments = $workbook_url->path_segments();
-
-                            # Is this pointing to the same file as our workbook?
-                            if (pop(@workbook_path_segments) eq $path_segments[0]) {
-                                # Yes - use the path for our URL
-                                while (my $value = pop(@workbook_path_segments)) {
-                                    unshift(@path_segments, $value);
-                                }
-                            }
-
-                            # Convert this into a file URL
-                            $link_location->scheme('file');
-                            $link_location->opaque('//');
-                            $link_location->path(join('/', @path_segments));
-
-                            $destination_url = $link_location->as_string();
-                        }
-                    }
 
                     # Add the hyperlink
                     $cell->{Hyperlink} = [
