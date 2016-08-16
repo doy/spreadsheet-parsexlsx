@@ -224,6 +224,7 @@ sub _parse_sheet {
     my $default_column_width = 10;
 
     my %cells;
+    my $row_idx = 0;
 
     my $sheet_xml = $self->_new_twig(
         twig_roots => {
@@ -331,15 +332,6 @@ sub _parse_sheet {
                 $twig->purge;
             },
 
-            's:row' => sub {
-                my ( $twig, $row ) = @_;
-
-                $row_heights[ $row->att('r') - 1 ] = $row->att('ht');
-                $rows_hidden[ $row->att('r') - 1 ] = $self->_xml_boolean($row->att('hidden'));
-
-                $twig->purge;
-            },
-
             's:selection' => sub {
                 my ( $twig, $selection ) = @_;
 
@@ -367,9 +359,26 @@ sub _parse_sheet {
 
             's:sheetData/s:row' => sub {
                 my ( $twig, $row_elt ) = @_;
+                my $explicit_row_idx = $row_elt->att('r');
+                $row_idx = $explicit_row_idx - 1 if defined $explicit_row_idx;
 
+                $row_heights[$row_idx] = $row_elt->att('ht');
+                $rows_hidden[$row_idx] = $self->_xml_boolean($row_elt->att('hidden'));
+
+                my $col_idx = 0;
                 for my $cell ( $row_elt->children('s:c') ){
-                    my ($row, $col) = $self->_cell_to_row_col($cell->att('r'));
+                    my $loc = $cell->att('r');
+                    my ($row, $col);
+                    if ($loc) {
+                        ($row, $col) = $self->_cell_to_row_col($loc);
+                        if ($row != $row_idx) {
+                            warn "mismatched coords: got $loc for cell in row $row_idx";
+                        }
+                        $col_idx = $col - 1;
+                    }
+                    else {
+                        ($row, $col) = ($row_idx, $col_idx);
+                    }
                     $sheet->{MaxRow} = $row
                         if $sheet->{MaxRow} < $row;
                     $sheet->{MaxCol} = $col
@@ -444,9 +453,11 @@ sub _parse_sheet {
                     );
                     $cells{"$row;$col"} = $cell;
                     $sheet->{Cells}[$row][$col] = $cell;
+                    $col_idx++;
                 }
 
                 $twig->purge;
+                $row_idx++;
             },
         }
     );
