@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+      - Add explicit dependency on perl 5.10 (we apparently broke 5.8 support
+        at some point) (andk, #62)
 
 0.25  2016-07-14
       - Fix encryption.t test on Windows (marks6i, #60)
