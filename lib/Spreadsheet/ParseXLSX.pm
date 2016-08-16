@@ -8,6 +8,7 @@ use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel 0.61;
+use URI;
 use XML::Twig;
 
 use Spreadsheet::ParseXLSX::Decryptor;
@@ -521,8 +522,87 @@ sub _parse_sheet_links {
                 my $hyperlink = shift;
 
                 # Is this an external hyperlink I've parsed from the rels?
-                if ($rels->{$hyperlink->att('r:id')}) {
+                if (
+                    $hyperlink->att('r:id')
+                    && $rels
+                    && $rels->{$hyperlink->att('r:id')}
+                ) {
                     # Yes - work out our row and column
+                    my ($row, $col) = $self->_cell_to_row_col($hyperlink->att('ref'));
+
+                    # Get the cell
+                    my $cell = $sheet->{Cells}[$row][$col];
+
+                    # Do I have a cell?
+                    unless ($cell) {
+                        # No - just create an empty value for now
+                        $cell = $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new();
+                    }
+
+                    # Check if we need to frig our destination a bit
+                    my $destination_url;
+                    
+                    my $link_location = URI->new(
+                        sprintf(
+                            '%s%s%s',
+                            $rels->{$hyperlink->att('r:id')},
+                            $hyperlink->att('location') ? '#' : '',
+                            $hyperlink->att('location') || '',
+                        )
+                    );
+
+                    if ($link_location->has_recognized_scheme()) {
+                        $destination_url  = sprintf(
+                            '%s%s%s',
+                            $rels->{$hyperlink->att('r:id')},
+                            $hyperlink->att('location') ? '#' : '',
+                            $hyperlink->att('location') || '',
+                        );
+                    } else { 
+                        my @path_segments = $link_location->path_segments();
+
+                        if (scalar(@path_segments) > 1) {
+                            $destination_url = sprintf(
+                                '%s%s%s',
+                                $rels->{$hyperlink->att('r:id')},
+                                $hyperlink->att('location') ? '#' : '',
+                                $hyperlink->att('location') || '',
+                            );
+                        } else {
+                            my $workbook_url = URI->new($sheet->{_Book}->{File});
+                            my @workbook_path_segments = $workbook_url->path_segments();
+
+                            # Is this pointing to the same file as our workbook?
+                            if (pop(@workbook_path_segments) eq $path_segments[0]) {
+                                # Yes - use the path for our URL
+                                while (my $value = pop(@workbook_path_segments)) {
+                                    unshift(@path_segments, $value);
+                                }
+                            }
+
+                            # Convert this into a file URL
+                            $link_location->scheme('file');
+                            $link_location->opaque('//');
+                            $link_location->path(join('/', @path_segments));
+
+                            $destination_url = $link_location->as_string();
+                        }
+                    }
+
+                    # Add the hyperlink
+                    $cell->{Hyperlink} = [
+                        $hyperlink->att('display') || $cell->{_Value} || undef, # Description
+                        $destination_url, # Target
+                        undef, # Target Frame
+                        $row, # Start Row
+                        $row, # End Row
+                        $col, # Start Column
+                        $col, # End Column
+                    ];
+                } else {
+                    # This is an internal hyperlink
+
+                    # Work out our row and column
                     my ($row, $col) = $self->_cell_to_row_col($hyperlink->att('ref'));
 
                     # Get the cell
@@ -536,8 +616,8 @@ sub _parse_sheet_links {
 
                     # Add the hyperlink
                     $cell->{Hyperlink} = [
-                        $hyperlink->att('display'), # Description
-                        $rels->{$hyperlink->att('r:id')}, # Target
+                        $hyperlink->att('display') || $cell->{_Value} || undef, # Description
+                        $hyperlink->att('location'), # Target
                         undef, # Target Frame
                         $row, # Start Row
                         $row, # End Row
@@ -1039,7 +1119,7 @@ sub _extract_files {
     my $worksheet_rels_xml;
 
     # Get each worksheet object
-    foreach my $worksheet ($wb_rels->find_nodes(qq<//Relationship[\@Type="$type_base/worksheet"]>)) {
+    foreach my $worksheet ($wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/worksheet"]>)) {
         # Split the worksheet xml path so we can
         my @sheetname_parts = split('/', $worksheet->att('Target'));
 
