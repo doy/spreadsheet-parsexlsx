@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 
 use Spreadsheet::ParseExcel::Utility qw(sheetRef);
 use Spreadsheet::ParseXLSX;
