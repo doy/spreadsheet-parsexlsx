@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.26  2016-08-16
       - Add explicit dependency on perl 5.10 (we apparently broke 5.8 support
         at some point) (andk, #62)
 
