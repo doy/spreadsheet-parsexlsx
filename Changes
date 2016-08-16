@@ -1,6 +1,8 @@
 Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
+
+0.27  2016-08-16
       - Fix issues parsing sheets whose cell elements do not have location
         attributes (dgiordano, #61)
 
