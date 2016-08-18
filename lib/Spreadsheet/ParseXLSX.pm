@@ -186,6 +186,16 @@ sub _parse_workbook {
           );
           $sheet->{SheetHidden} = 1 if defined $_->att('state') and $_->att('state') eq 'hidden';
           $self->_parse_sheet($sheet, $files->{sheets}{$idx});
+
+          # Do we have a rels for for this sheet?
+          if (
+            $files->{sheets_rels}
+            && $files->{sheets_rels}{$idx}
+          ) {
+            # Yes - now parse the rels to extract the hyperlinks
+            $self->_parse_sheet_links($sheet, $files->{sheets}{$idx}, $files->{sheets_rels}{$idx});
+          }
+
           ($sheet)
         } else {
           ()
@@ -484,6 +494,102 @@ sub _parse_sheet {
     $sheet->{ColFmtNo} = \@column_formats;
     $sheet->{ColHidden} = \@columns_hidden;
 
+}
+
+sub _parse_sheet_links {
+    my $self = shift;
+    my ($sheet, $sheet_file, $rels_file) = @_;
+
+    # First we need to parse the hyperlinks out of the rels XML
+    my $rels;
+
+    my $rels_xml = XML::Twig->new(
+        twig_roots => {
+            'Relationships/Relationship' => sub {
+                my $twig = shift;
+                my $relationship = shift;
+
+                if (
+                  $relationship->att('Type') eq 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
+                  && $relationship->att('TargetMode') eq 'External'
+                ) {
+                    # Store the target URL in a hash by relationship id
+                    $rels->{$relationship->att('Id')} = $relationship->att('Target');
+                }
+                
+                $twig->purge;
+            },
+        },
+    );
+
+    # Run the parser
+    $rels_xml->parse($rels_file);
+
+    # Now iterate over the sheet XML again, this time processing hyperlink entries
+    my $sheet_xml = XML::Twig->new(
+        twig_roots => {
+            'hyperlinks/hyperlink' => sub {
+                my $twig = shift;
+                my $hyperlink = shift;
+
+                # Work out our row and column
+                my ($row, $col) = $self->_cell_to_row_col($hyperlink->att('ref'));
+
+                # Get the cell
+                my $cell = $sheet->{Cells}[$row][$col];
+
+                # Do I have a cell?
+                unless ($cell) {
+                    # No - just create an empty value for now
+                    $cell = $sheet->{Cells}[$row][$col] = Spreadsheet::ParseExcel::Cell->new();
+                }
+
+                # Is this an external hyperlink I've parsed from the rels?
+                if (
+                    $hyperlink->att('r:id')
+                    && $rels
+                    && $rels->{$hyperlink->att('r:id')}
+                ) {
+                    # Yes - Check if we need to frig our destination a bit
+                    my $destination_url = sprintf(
+                        '%s%s%s',
+                        $rels->{$hyperlink->att('r:id')},
+                        $hyperlink->att('location') ? '#' : '',
+                        $hyperlink->att('location') || '',
+                    );
+
+                    # Add the hyperlink
+                    $cell->{Hyperlink} = [
+                        $hyperlink->att('display') || $cell->{_Value} || undef, # Description
+                        $destination_url, # Target
+                        undef, # Target Frame
+                        $row, # Start Row
+                        $row, # End Row
+                        $col, # Start Column
+                        $col, # End Column
+                    ];
+                } else {
+                    # This is an internal hyperlink
+
+                    # Add the hyperlink
+                    $cell->{Hyperlink} = [
+                        $hyperlink->att('display') || $cell->{_Value} || undef, # Description
+                        $hyperlink->att('location'), # Target
+                        undef, # Target Frame
+                        $row, # Start Row
+                        $row, # End Row
+                        $col, # Start Column
+                        $col, # End Column
+                    ];
+                }
+                
+                $twig->purge;
+            },
+        },
+    );
+
+    # Now parse the XML
+    $sheet_xml->parse( $sheet_file );
 }
 
 sub _get_text_and_rich_font_by_cell {
@@ -968,6 +1074,29 @@ sub _extract_files {
         ($_->att('Id') => $self->_zip_file_member($zip, $get_path->($_->att('Target'))))
     } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/worksheet"]>);
 
+    # If we have hyperlinks in cells we need the rels file to get the link details
+    my $worksheet_rels_xml;
+
+    # Get each worksheet object
+    foreach my $worksheet ($wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/worksheet"]>)) {
+        # Split the worksheet xml path so we can
+        my @sheetname_parts = split('/', $worksheet->att('Target'));
+
+        # Insert _rels before the sheetname, and amend the filename to have .rels on the end
+        my $sheetname = pop(@sheetname_parts);
+        push(@sheetname_parts, '_rels');
+        push(@sheetname_parts, $sheetname . '.rels');
+
+        # Recreate the file path
+        my $rels_name = join('/', @sheetname_parts);
+
+        # Check if we have a rels file
+        if (my $relfile = $zip->memberNamed($get_path->($rels_name)) ) {
+            # Add the XML to our hash for access later on
+            $worksheet_rels_xml->{$worksheet->att('Id')} = $relfile->contents;
+        }
+    }
+
     my %themes_xml = map {
         $_->att('Id') => $self->_parse_xml($zip, $get_path->($_->att('Target')))
     } $wb_rels->find_nodes(qq<//packagerels:Relationship[\@Type="$type_base/theme"]>);
@@ -982,6 +1111,7 @@ sub _extract_files {
         ($strings_xml
             ? (strings => $strings_xml)
             : ()),
+        (($worksheet_rels_xml && keys(%$worksheet_rels_xml)) ? (sheets_rels => $worksheet_rels_xml) : ()),
     };
 }
 
