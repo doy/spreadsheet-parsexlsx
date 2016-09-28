@@ -427,12 +427,17 @@ sub _parse_sheet {
 
                     my $format_idx = $cell->att('s') || 0;
                     my $format = $sheet->{_Book}{Format}[$format_idx];
+                    my $formatstr = $sheet->{_Book}{FormatStr}{$format->{FmtIdx}};
                     die "unknown format $format_idx" unless $format;
 
                     # see the list of built-in formats below in _parse_styles
                     # XXX probably should figure this out from the actual format string,
                     # but that's not entirely trivial
                     if (grep { $format->{FmtIdx} == $_ } 14..22, 45..47) {
+                        $long_type = 'Date';
+                    }
+
+                    if ($formatstr =~ /\b(mmm|m|d|yy|h|hh|mm|ss)\b/) {
                         $long_type = 'Date';
                     }
 
