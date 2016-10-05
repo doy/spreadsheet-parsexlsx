@@ -143,6 +143,7 @@ sub _agileDecryption {
     my $encryptedVerifierHashInput = MIME::Base64::decode($info->att('encryptedVerifierHashInput'));
     my $encryptedVerifierHashValue = MIME::Base64::decode($info->att('encryptedVerifierHashValue'));
     my $encryptedKeyValue = MIME::Base64::decode($info->att('encryptedKeyValue'));
+    my $hashSize = 0 + $info->att('hashSize');
 
     my $keyDecryptor = Spreadsheet::ParseXLSX::Decryptor::Agile->new({
                   cipherAlgorithm => $info->att('cipherAlgorithm'),
@@ -155,7 +156,7 @@ sub _agileDecryption {
                   blockSize       => 0 + $info->att('blockSize')
               });
 
-    $keyDecryptor->verifyPassword($encryptedVerifierHashInput, $encryptedVerifierHashValue);
+    $keyDecryptor->verifyPassword($encryptedVerifierHashInput, $encryptedVerifierHashValue, $hashSize);
 
     my $key = $keyDecryptor->decrypt($encryptedKeyValue, "\x14\x6e\x0b\xe7\xab\xac\xd0\xd6");
 
@@ -194,7 +195,7 @@ sub new {
 
     if ($self->{hashAlgorithm} eq 'SHA512') {
         $self->{hashProc} = \&Digest::SHA::sha512;
-    } elsif ($self->{hashAlgorithm} eq 'SHA-1') {
+    } elsif (($self->{hashAlgorithm} eq 'SHA-1') || ($self->{hashAlgorithm} eq 'SHA1')) {
         $self->{hashProc} = \&Digest::SHA::sha1;
     } elsif ($self->{hashAlgorithm} eq 'SHA256') {
         $self->{hashProc} = \&Digest::SHA::sha256;
