@@ -89,10 +89,12 @@ sub decryptFile {
 
 sub verifyPassword {
     my $self = shift;
-    my ($encryptedVerifier, $encryptedVerifierHash) = @_;
+    my ($encryptedVerifier, $encryptedVerifierHash, $hashSize) = @_;
 
     my $encryptedVerifierHash0 = $self->{hashProc}->($self->decrypt($encryptedVerifier, "\xfe\xa7\xd2\x76\x3b\x4b\x9e\x79"));
     $encryptedVerifierHash = $self->decrypt($encryptedVerifierHash, "\xd7\xaa\x0f\x6d\x30\x61\x34\x4e");
+    $encryptedVerifierHash0 = substr($encryptedVerifierHash0, 0, $hashSize);
+    $encryptedVerifierHash = substr($encryptedVerifierHash, 0, $hashSize);
 
     die "Wrong password: $self" unless ($encryptedVerifierHash0 eq $encryptedVerifierHash);
 }
