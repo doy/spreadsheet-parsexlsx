@@ -101,7 +101,7 @@ sub parse {
         $workbook->{File} = $file;
     }
     else {
-        die "Argument to 'new' must be a filename, open filehandle, or scalar ref";
+        die "First argument to 'parse' must be a filename, open filehandle, or scalar ref";
     }
 
     return $self->_parse_workbook($zip, $workbook, $formatter);
