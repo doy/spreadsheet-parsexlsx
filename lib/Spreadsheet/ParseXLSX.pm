@@ -505,9 +505,12 @@ sub _get_text_and_rich_font_by_cell {
 
     my $string_text = '';
     my @rich_font_by_cell;
-    my @nodes_r = $si->find_nodes('.//s:r');
-    if (@nodes_r > 0) {
-        for my $chunk (map { $_->children } @nodes_r) {
+    for my $subnode ($si->children) {
+        if ($subnode->name eq 's:t') {
+            $string_text .= $subnode->text;
+        }
+        elsif ($subnode->name eq 's:r') {
+            for my $chunk ($subnode->children) {
             my $string_length = length($string_text);
             if ($chunk->name eq 's:t') {
                 if (!@rich_font_by_cell) {
@@ -567,7 +570,9 @@ sub _get_text_and_rich_font_by_cell {
         }
     }
     else {
-        $string_text = join '', map { $_->text } $si->find_nodes('.//s:t');
+        # $subnode->name is either 's:rPh' or 's:phoneticPr'
+        # We ignore phonetic information and do nothing.
+        }
     }
 
     return (
