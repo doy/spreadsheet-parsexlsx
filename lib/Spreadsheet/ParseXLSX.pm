@@ -511,67 +511,67 @@ sub _get_text_and_rich_font_by_cell {
         }
         elsif ($subnode->name eq 's:r') {
             for my $chunk ($subnode->children) {
-            my $string_length = length($string_text);
-            if ($chunk->name eq 's:t') {
-                if (!@rich_font_by_cell) {
+                my $string_length = length($string_text);
+                if ($chunk->name eq 's:t') {
+                    if (!@rich_font_by_cell) {
+                        push @rich_font_by_cell, [
+                            $string_length,
+                            Spreadsheet::ParseExcel::Font->new(%default_font_opts)
+                        ];
+                    }
+                    $string_text .= $chunk->text;
+                }
+                elsif ($chunk->name eq 's:rPr') {
+                    my %format_text = %default_font_opts;
+                    for my $node_format ($chunk->children) {
+                        if ($node_format->name eq 's:sz') {
+                            $format_text{Height} = $node_format->att('val');
+                        }
+                        elsif ($node_format->name eq 's:color') {
+                            $format_text{Color} = $self->_color(
+                                $theme_colors,
+                                $node_format
+                            );
+                        }
+                        elsif ($node_format->name eq 's:rFont') {
+                            $format_text{Name} = $node_format->att('val');
+                        }
+                        elsif ($node_format->name eq 's:b') {
+                            $format_text{Bold} = 1;
+                        }
+                        elsif ($node_format->name eq 's:i') {
+                            $format_text{Italic} = 1;
+                        }
+                        elsif ($node_format->name eq 's:u') {
+                            $format_text{Underline} = 1;
+                            if (defined $node_format->att('val')) {
+                                $format_text{UnderlineStyle} = 2;
+                            } else {
+                                $format_text{UnderlineStyle} = 1;
+                            }
+                        }
+                        elsif ($node_format->name eq 's:strike') {
+                            $format_text{Strikeout} = 1;
+                        }
+                        elsif ($node_format->name eq 's:vertAlign') {
+                            if ($node_format->att('val') eq 'superscript') {
+                                $format_text{Super} = 1;
+                            }
+                            elsif ($node_format->att('val') eq 'subscript') {
+                                $format_text{Super} = 2;
+                            }
+                        }
+                    }
                     push @rich_font_by_cell, [
                         $string_length,
-                        Spreadsheet::ParseExcel::Font->new(%default_font_opts)
+                        Spreadsheet::ParseExcel::Font->new(%format_text)
                     ];
                 }
-                $string_text .= $chunk->text;
-            }
-            elsif ($chunk->name eq 's:rPr') {
-                my %format_text = %default_font_opts;
-                for my $node_format ($chunk->children) {
-                    if ($node_format->name eq 's:sz') {
-                        $format_text{Height} = $node_format->att('val');
-                    }
-                    elsif ($node_format->name eq 's:color') {
-                        $format_text{Color} = $self->_color(
-                            $theme_colors,
-                            $node_format
-                        );
-                    }
-                    elsif ($node_format->name eq 's:rFont') {
-                        $format_text{Name} = $node_format->att('val');
-                    }
-                    elsif ($node_format->name eq 's:b') {
-                        $format_text{Bold} = 1;
-                    }
-                    elsif ($node_format->name eq 's:i') {
-                        $format_text{Italic} = 1;
-                    }
-                    elsif ($node_format->name eq 's:u') {
-                        $format_text{Underline} = 1;
-                        if (defined $node_format->att('val')) {
-                            $format_text{UnderlineStyle} = 2;
-                        } else {
-                            $format_text{UnderlineStyle} = 1;
-                        }
-                    }
-                    elsif ($node_format->name eq 's:strike') {
-                        $format_text{Strikeout} = 1;
-                    }
-                    elsif ($node_format->name eq 's:vertAlign') {
-                        if ($node_format->att('val') eq 'superscript') {
-                            $format_text{Super} = 1;
-                        }
-                        elsif ($node_format->att('val') eq 'subscript') {
-                            $format_text{Super} = 2;
-                        }
-                    }
-                }
-                push @rich_font_by_cell, [
-                    $string_length,
-                    Spreadsheet::ParseExcel::Font->new(%format_text)
-                ];
             }
         }
-    }
-    else {
-        # $subnode->name is either 's:rPh' or 's:phoneticPr'
-        # We ignore phonetic information and do nothing.
+        else {
+            # $subnode->name is either 's:rPh' or 's:phoneticPr'
+            # We ignore phonetic information and do nothing.
         }
     }
 
