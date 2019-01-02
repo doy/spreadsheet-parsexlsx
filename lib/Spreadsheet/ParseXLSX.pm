@@ -4,7 +4,7 @@ use warnings;
 use 5.010;
 # ABSTRACT: parse XLSX files
 
-use Archive::Zip;
+use Archive::Zip 1.34;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
 use Spreadsheet::ParseExcel 0.61;
