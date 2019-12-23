@@ -437,7 +437,7 @@ sub _parse_sheet {
                         $long_type = 'Date';
                     }
 
-                    if ($formatstr =~ /\b(mmm|m|d|yy|h|hh|mm|ss)\b/) {
+                    if ($formatstr =~ /\b(mmm|m|d|yy|h|hh|mm|ss)\b/i) {
                         $long_type = 'Date';
                     }
 
