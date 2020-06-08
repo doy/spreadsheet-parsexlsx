@@ -184,7 +184,11 @@ sub _parse_workbook {
               _Book    => $workbook,
               _SheetNo => $idx,
           );
-          $sheet->{SheetHidden} = 1 if defined $_->att('state') and $_->att('state') eq 'hidden';
+          my $state = $_->att('state');
+          if (defined $state) {
+              $sheet->{SheetHidden} = 1 if $state eq 'hidden';
+              $sheet->{SheetHidden} = 2 if $state eq 'veryHidden';
+          }
           $self->_parse_sheet($sheet, $files->{sheets}{$idx});
           ($sheet)
         } else {
