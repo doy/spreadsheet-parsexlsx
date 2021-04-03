@@ -149,16 +149,37 @@ sub _parse_workbook {
     #BOL
     #my hack to only return the list of sheet names
     #
-    if($self->{just_find_sheet_names}) {
+        if($self->{just_find_sheet_names}) {
       my @sheets = map {
-        $_->att('name');
+        my $idx = $_->att('rels:id');
+        if ($files->{sheets}{$idx}) {
+          my $sheet = Spreadsheet::ParseExcel::Worksheet->new
+            (
+             Name     => $_->att('name'),
+             _Book    => $workbook,
+             _SheetNo => $idx,
+            );
+          #we don't call parse to save all that execution time, 
+          #but the ReadData function needs some definition for Cells to add the sheet
+          #so we add an empty array 
+          $sheet->{Cells}=[];
+          $sheet->{SheetHidden} = 1 if defined $_->att('state') and $_->att('state') eq 'hidden';
+          
+          ($sheet)
+        } else {
+          ()
+        }
       } $files->{workbook}->find_nodes('//s:sheets/s:sheet');
       $workbook->{Worksheet}  = \@sheets;
       $workbook->{SheetCount} = scalar(@sheets);
+      
+      my ($node) = $files->{workbook}->find_nodes('//s:workbookView');
+      my $selected = $node ? $node->att('activeTab') : undef;
+      $workbook->{SelectedSheet} = defined($selected) ? 0+$selected : 0;
+
       return $workbook;
     }
 
-    
     #BOL
     #my hack to only process worksheets matching the sheet filter
     # (the grep added before the $files->{workbook} is a big part of it)
