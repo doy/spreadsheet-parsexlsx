@@ -1,4 +1,6 @@
 package Spreadsheet::ParseXLSX;
+our $AUTHORITY = 'cpan:DOY';
+$Spreadsheet::ParseXLSX::VERSION = '0.28';
 use strict;
 use warnings;
 use 5.010;
@@ -12,37 +14,7 @@ use XML::Twig;
 
 use Spreadsheet::ParseXLSX::Decryptor;
 
-=head1 SYNOPSIS
 
-  use Spreadsheet::ParseXLSX;
-
-  my $parser = Spreadsheet::ParseXLSX->new;
-  my $workbook = $parser->parse("file.xlsx");
-  # see Spreadsheet::ParseExcel for further documentation
-
-=head1 DESCRIPTION
-
-This module is an adaptor for L<Spreadsheet::ParseExcel> that reads XLSX files.
-For documentation about the various data that you can retrieve from these
-classes, please see L<Spreadsheet::ParseExcel>,
-L<Spreadsheet::ParseExcel::Workbook>, L<Spreadsheet::ParseExcel::Worksheet>,
-and L<Spreadsheet::ParseExcel::Cell>.
-
-=cut
-
-=method new(%opts)
-
-Returns a new parser instance. Takes a hash of parameters:
-
-=over 4
-
-=item Password
-
-Password to use for decrypting encrypted files.
-
-=back
-
-=cut
 
 sub new {
     my $class = shift;
@@ -50,18 +22,16 @@ sub new {
 
     my $self = bless {}, $class;
     $self->{Password} = $args{Password} if defined $args{Password};
+    
+    #BOL
+    #I added support for these options
+    #we can pass as many as we want as a list of name/value pairs in the Spreadsheet::ReadData call
+    $self->{sheet_filter} = $args{sheet_filter} if defined $args{sheet_filter};
+    $self->{just_find_sheet_names} = $args{just_find_sheet_names} if defined $args{just_find_sheet_names};
 
     return $self;
 }
 
-=method parse($file, $formatter)
-
-Parses an XLSX file. Parsing errors throw an exception. C<$file> can be either
-a filename or an open filehandle. Returns a
-L<Spreadsheet::ParseExcel::Workbook> instance containing the parsed data.
-The C<$formatter> argument is an optional formatter class as described in L<Spreadsheet::ParseExcel>.
-
-=cut
 
 sub parse {
     my $self = shift;
@@ -176,6 +146,48 @@ sub _parse_workbook {
     # $workbook->{PrintArea} = ...;
     # $workbook->{PrintTitle} = ...;
 
+    #BOL
+    #my hack to only return the list of sheet names
+    #
+        if($self->{just_find_sheet_names}) {
+      my @sheets = map {
+        my $idx = $_->att('rels:id');
+        if ($files->{sheets}{$idx}) {
+          my $sheet = Spreadsheet::ParseExcel::Worksheet->new
+            (
+             Name     => $_->att('name'),
+             _Book    => $workbook,
+             _SheetNo => $idx,
+            );
+          #we don't call parse to save all that execution time, 
+          #but the ReadData function needs some definition for Cells to add the sheet
+          #so we add an empty array 
+          $sheet->{Cells}=[];
+          $sheet->{SheetHidden} = 1 if defined $_->att('state') and $_->att('state') eq 'hidden';
+          
+          ($sheet)
+        } else {
+          ()
+        }
+      } $files->{workbook}->find_nodes('//s:sheets/s:sheet');
+      $workbook->{Worksheet}  = \@sheets;
+      $workbook->{SheetCount} = scalar(@sheets);
+      
+      my ($node) = $files->{workbook}->find_nodes('//s:workbookView');
+      my $selected = $node ? $node->att('activeTab') : undef;
+      $workbook->{SelectedSheet} = defined($selected) ? 0+$selected : 0;
+
+      return $workbook;
+    }
+
+    #BOL
+    #my hack to only process worksheets matching the sheet filter
+    # (the grep added before the $files->{workbook} is a big part of it)
+    #
+    my %sheet_filter=();
+    if ($self->{sheet_filter}) {
+      map {$sheet_filter{"$_"}=1} split ",", $self->{sheet_filter};
+    }
     my @sheets = map {
         my $idx = $_->att('rels:id');
         if ($files->{sheets}{$idx}) {
@@ -190,7 +202,7 @@ sub _parse_workbook {
         } else {
           ()
         }
-    } $files->{workbook}->find_nodes('//s:sheets/s:sheet');
+    } grep {%sheet_filter ? defined $sheet_filter{$_->att('name')} : 1} $files->{workbook}->find_nodes('//s:sheets/s:sheet');
 
     $workbook->{Worksheet}  = \@sheets;
     $workbook->{SheetCount} = scalar(@sheets);
@@ -1135,6 +1147,69 @@ sub _new_twig {
     );
 }
 
+
+1;
+
+__END__
+
+=pod
+
+=encoding UTF-8
+
+=head1 NAME
+
+Spreadsheet::ParseXLSX - parse XLSX files
+
+=head1 VERSION
+
+version 0.27
+
+=head1 SYNOPSIS
+
+  use Spreadsheet::ParseXLSX;
+
+  my $parser = Spreadsheet::ParseXLSX->new;
+  my $workbook = $parser->parse("file.xlsx");
+  # see Spreadsheet::ParseExcel for further documentation
+
+=head1 DESCRIPTION
+
+This module is an adaptor for L<Spreadsheet::ParseExcel> that reads XLSX files.
+For documentation about the various data that you can retrieve from these
+classes, please see L<Spreadsheet::ParseExcel>,
+L<Spreadsheet::ParseExcel::Workbook>, L<Spreadsheet::ParseExcel::Worksheet>,
+and L<Spreadsheet::ParseExcel::Cell>.
+
+=head1 METHODS
+
+=head2 new(%opts)
+
+Returns a new parser instance. Takes a hash of parameters:
+
+=over 4
+
+=item Password
+
+Password to use for decrypting encrypted files.
+
+=item sheet_filter
+
+Comma Separated List of Sheet or TabNames that you wish to parse 
+If this does not exist, ParseXLSX parses EVERY sheet in a workbook which can consume lots of time
+
+=item just_find_sheet_names
+
+If this boolean is set, ParseXLSX will only find all the worksheet names WITHOUT parsing any of the worksheet data
+
+=back
+
+=head2 parse($file, $formatter)
+
+Parses an XLSX file. Parsing errors throw an exception. C<$file> can be either
+a filename or an open filehandle. Returns a
+L<Spreadsheet::ParseExcel::Workbook> instance containing the parsed data.
+The C<$formatter> argument is an optional formatter class as described in L<Spreadsheet::ParseExcel>.
+
 =head1 INCOMPATIBILITIES
 
 This module returns data using classes from L<Spreadsheet::ParseExcel>, so for
@@ -1247,6 +1322,16 @@ Parts of this code were paid for by
 
 =back
 
-=cut
+=head1 AUTHOR
 
-1;
+Jesse Luehrs <doy@tozt.net>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2016 by Jesse Luehrs.
+
+This is free software, licensed under:
+
+  The MIT (X11) License
+
+=cut

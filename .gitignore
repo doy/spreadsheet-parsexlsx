@@ -16,3 +16,4 @@ MANIFEST.bak
 Spreadsheet-ParseXLSX-*
 *.bs
 *.o
+*.pm~
