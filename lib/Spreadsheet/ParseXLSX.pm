@@ -186,7 +186,7 @@ sub _parse_workbook {
     #
     my %sheet_filter=();
     if ($self->{sheet_filter}) {
-      map {$sheet_filter{$_}} split ",", $self->{sheet_filter};
+      map {$sheet_filter{"$_"}=1} split ",", $self->{sheet_filter};
     }
     my @sheets = map {
         my $idx = $_->att('rels:id');
