@@ -212,8 +212,6 @@ sub _parse_sheet {
     $sheet->{MaxCol} = -1;
     $sheet->{Selection} = [ 0, 0 ];
 
-    my %merged_cells;
-
     my @column_formats;
     my @column_widths;
     my @columns_hidden;
@@ -223,7 +221,6 @@ sub _parse_sheet {
     my $default_row_height   = 15;
     my $default_column_width = 10;
 
-    my %cells;
     my $row_idx = 0;
 
     my $sheet_xml = $self->_new_twig(
@@ -299,11 +296,6 @@ sub _parse_sheet {
                         $toprow, $leftcol,
                         $bottomrow, $rightcol,
                     ];
-                    for my $row ($toprow .. $bottomrow) {
-                        for my $col ($leftcol .. $rightcol) {
-                            $merged_cells{"$row;$col"} = 1;
-                        }
-                    }
                 }
 
                 $twig->purge;
@@ -451,7 +443,6 @@ sub _parse_sheet {
                     $cell->{_Value} = $sheet->{_Book}{FmtClass}->ValFmt(
                         $cell, $sheet->{_Book}
                     );
-                    $cells{"$row;$col"} = $cell;
                     $sheet->{Cells}[$row][$col] = $cell;
                     $col_idx++;
                 }
@@ -464,11 +455,17 @@ sub _parse_sheet {
 
     $sheet_xml->parse( $sheet_file );
 
-    for my $key (keys %merged_cells) {
-        $cells{$key}{Merged} = 1 if $cells{$key};
-    }
-
-    if ( ! $sheet->{Cells} ){
+    if ( $sheet->{Cells} ){
+      for (my $r = 0; $r < scalar(@{$sheet->{Cells}}); $r++) {
+        my $row = $sheet->{Cells}[$r];
+        next unless $row;
+        for (my $c = 0; $c < scalar(@$row); $c++) {
+          my $cell = $row->[$c];
+          next unless $cell;
+          $cell->{Merged} = $self->_is_merged($sheet, $r, $c);
+        }
+      }
+    } else {
         $sheet->{MaxRow} = $sheet->{MaxCol} = -1;
     }
 
@@ -1039,6 +1036,24 @@ sub _dimensions {
     my ($rmax, $cmax) = $self->_cell_to_row_col($bottomright);
 
     return ($rmin, $cmin, $rmax, $cmax);
+}
+
+sub _is_merged {
+    my ( $self, $sheet, $row, $col ) = @_;
+
+    return unless $sheet->{MergedArea};
+
+    foreach my $area ( @{ $sheet->{MergedArea} } ) {
+        my ( $topRow, $leftCol, $bottomRow, $rightCol ) = @$area;
+
+        return 1
+          if $topRow <= $row
+          && $leftCol <= $col
+          && $row <= $bottomRow
+          && $col <= $rightCol;
+    }
+
+    return 0;
 }
 
 sub _cell_to_row_col {
