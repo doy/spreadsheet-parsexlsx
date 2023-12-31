@@ -455,16 +455,14 @@ sub _parse_sheet {
 
     $sheet_xml->parse( $sheet_file );
 
-    if ( $sheet->{Cells} ){
-      for (my $r = 0; $r < scalar(@{$sheet->{Cells}}); $r++) {
-        my $row = $sheet->{Cells}[$r];
-        next unless $row;
-        for (my $c = 0; $c < scalar(@$row); $c++) {
-          my $cell = $row->[$c];
-          next unless $cell;
-          $cell->{Merged} = $self->_is_merged($sheet, $r, $c);
+    if ( $sheet->{Cells} ) {
+        for my $r ( 0 .. $#{ $sheet->{Cells} } ) {
+            my $row = $sheet->{Cells}[$r] or next;
+            for my $c ( 0 .. $#$row ) {
+                my $cell = $row->[$c] or next;
+                $cell->{Merged} = $self->_is_merged( $sheet, $r, $c );
+            }
         }
-      }
     } else {
         $sheet->{MaxRow} = $sheet->{MaxCol} = -1;
     }
