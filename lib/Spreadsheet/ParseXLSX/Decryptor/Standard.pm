@@ -5,7 +5,7 @@ use warnings;
 
 # VERSION
 
-# ABSTRACT: standard decryption 
+# ABSTRACT: standard decryption
 
 use base 'Spreadsheet::ParseXLSX::Decryptor';
 
