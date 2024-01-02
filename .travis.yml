@@ -1,14 +1,10 @@
 sudo: false
 language: perl
 perl:
-    - "5.22"
-    - "5.20"
-    - "5.18"
-    - "5.16"
-    - "5.14"
+    - "5.38.2"
 install:
-    - cpanm -q --notest Dist::Zilla || (cat /home/travis/.cpanm/build.log; false)
-    - dzil authordeps --missing | cpanm -q --notest || (cat /home/travis/.cpanm/build.log; false)
-    - dzil listdeps --author --missing | cpanm -q --notest || (cat /home/travis/.cpanm/build.log; false)
+    - cpanm -q -n Dist::Zilla 
+    - dzil authordeps --missing | cpanm -q -n
+    - dzil listdeps --author --missing | cpanm -q -n
 script:
     - dzil test --all

@@ -1,13 +1,17 @@
 package Spreadsheet::ParseXLSX;
+
 use strict;
 use warnings;
 use 5.010;
+
+# VERSION
+
 # ABSTRACT: parse XLSX files
 
 use Archive::Zip;
 use Graphics::ColorUtils 'rgb2hls', 'hls2rgb';
 use Scalar::Util 'openhandle';
-use Spreadsheet::ParseExcel 0.61;
+use Spreadsheet::ParseExcel;
 use XML::Twig;
 
 use Spreadsheet::ParseXLSX::Decryptor;
@@ -1104,7 +1108,7 @@ sub _color {
                 $color = "#$theme";
             }
             else {
-                return undef;
+                return;
             }
         }
 
@@ -1214,7 +1218,7 @@ XLSX spec is quite large). If you run into any of those, bug reports are quite
 welcome.
 
 Please report any bugs to GitHub Issues at
-L<https://github.com/doy/spreadsheet-parsexlsx/issues>.
+L<https://github.com/MichaelDaum/spreadsheet-parsexlsx/issues>.
 
 =head1 SEE ALSO
 
@@ -1242,7 +1246,7 @@ L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Spreadsheet-ParseXLSX>
 
 =item * Github
 
-L<https://github.com/doy/spreadsheet-parsexlsx>
+L<https://github.com/MichaelDaum/spreadsheet-parsexlsx>
 
 =item * CPAN Ratings
 

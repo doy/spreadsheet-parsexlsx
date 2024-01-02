@@ -1,0 +1,17 @@
+theme = bugs
+verbose = %f: [%p] %m at line %l, column %c.\n
+
+[-Subroutines::RequireFinalReturn]
+[-ValuesAndExpressions::ProhibitConstantPragma]
+[-ErrorHandling::RequireCheckingReturnValueOfEval]
+[-Subroutines::ProhibitBuiltinHomonyms]
+[-Variables::ProhibitReusedNames]
+
+[BuiltinFunctions::ProhibitStringyEval]
+allow_includes = 1
+
+[Variables::RequireLocalizedPunctuationVars]
+allow = @ARGV $ARGV %ENV
+
+[Variables::ProhibitPunctuationVars]
+allow = $@ $!

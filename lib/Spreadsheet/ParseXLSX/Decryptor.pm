@@ -1,6 +1,11 @@
 package Spreadsheet::ParseXLSX::Decryptor;
+
 use strict;
 use warnings;
+
+# VERSION
+
+# ABSTRACT: helper class to open password protected files
 
 use Crypt::Mode::CBC;
 use Crypt::Mode::ECB;

@@ -2,6 +2,10 @@ Revision history for Spreadsheet-ParseXLSX
 
 {{$NEXT}}
 
+      - New maintainer
+      - Fix possible memory bomb as reported in https://github.com/haile01/perl_spreadsheet_excel_rce_poc/blob/main/parse_xlsx_bomb.md
+      - Updated Dist::Zilla configuration fixing deprecation warnings
+
 0.27  2016-08-16
       - Fix issues parsing sheets whose cell elements do not have location
         attributes (dgiordano, #61)

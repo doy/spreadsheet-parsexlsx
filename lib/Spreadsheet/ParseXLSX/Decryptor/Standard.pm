@@ -1,6 +1,11 @@
 package Spreadsheet::ParseXLSX::Decryptor::Standard;
+
 use strict;
 use warnings;
+
+# VERSION
+
+# ABSTRACT: standard decryption 
 
 use base 'Spreadsheet::ParseXLSX::Decryptor';
 

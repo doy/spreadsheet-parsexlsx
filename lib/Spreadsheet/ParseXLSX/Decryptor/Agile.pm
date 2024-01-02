@@ -1,6 +1,11 @@
 package Spreadsheet::ParseXLSX::Decryptor::Agile;
+
 use strict;
 use warnings;
+
+# VERSION
+
+# ABSTRACT: decryptor for files of version 4.4
 
 use base 'Spreadsheet::ParseXLSX::Decryptor';
 
